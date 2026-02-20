@@ -213,13 +213,11 @@ function SilentAim.Init()
         end)
         if not success then
              warn("SilentAim Hook Failed: " .. tostring(err))
-             -- Fallback or disable
              return
         end
     else
         -- Fallback for older executors
-        warn("Executor does not support hookmetamethod")
-    end
+        warn("Executor does not support hookmetamethod - attempting manual override")
         oldIndex = mt.__index
         oldNamecall = mt.__namecall
         mt.__index = newIndex

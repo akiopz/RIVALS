@@ -8,15 +8,15 @@ end
 
 local Config = {
     Main = {
-        Enabled = false, -- Default OFF for safety
+        Enabled = true, -- Default ON for usability
     },
     Aimbot = {
-        Enabled = false, -- Default OFF for safety
+        Enabled = true, -- Default ON
         AimMethod = "Mouse", -- Force Mouse Aim
         TeamCheck = true,
         TargetPart = "Head", -- Default, will be overridden if NearestPart is on
         Sensitivity = 1, -- 0 = Rage, 1 = Legit
-        Smoothing = 0, -- 0 = Instant (Direct to enemy), 10 = Smooth
+        Smoothing = 2, -- Smoother by default
         FOV = 120, -- Increased default
         ShowFOV = true,
         NearestPart = true, -- Auto select nearest part to cursor
@@ -27,7 +27,7 @@ local Config = {
         MissChance = 0, -- % chance to miss intentionally
         WallCheck = true, -- Check if target is visible
         KnockedCheck = true, -- [New] Ignore knocked players
-        Key = Enum.UserInputType.MouseButton1, -- Default Aim Key (Left Click)
+        Key = Enum.UserInputType.MouseButton2, -- Right Click to Aim
         StickyAim = true, -- Keep locking the same target
         StickyStrength = 0.8 -- (0-1) 1 = Instant Lock when close, 0 = No extra stickiness
     },
@@ -63,7 +63,7 @@ local Config = {
         VisibilityCheck = true
     },
     ESP = {
-        Enabled = false,
+        Enabled = true, -- Default ON
         TeamCheck = true,
         Boxes = true,
         Tracers = false,

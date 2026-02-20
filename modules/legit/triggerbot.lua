@@ -18,9 +18,12 @@ function TriggerBot.Update(dt)
     local mouseLocation = UserInputService:GetMouseLocation()
     local ray = Camera:ViewportPointToRay(mouseLocation.X, mouseLocation.Y)
     
+    -- Use cached RaycastParams from Common if available, or create new safely
     local raycastParams = RaycastParams.new()
-    raycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
     raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+    local filter = {Camera}
+    if LocalPlayer.Character then table.insert(filter, LocalPlayer.Character) end
+    raycastParams.FilterDescendantsInstances = filter
 
     local result = workspace:Raycast(ray.Origin, ray.Direction * 1000, raycastParams)
 

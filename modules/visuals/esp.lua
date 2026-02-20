@@ -125,7 +125,8 @@ local function getPlayerColor(player)
     end
 end
 
-function ESP.Update(player)
+-- Main Update Loop
+function ESP.UpdatePlayer(player)
     -- Throttling: Check if enough time has passed since last global update
     -- Note: Since this is called per player in a loop (usually), we should throttle the loop caller or handle it here.
     -- If this function is called inside a loop over all players, we can just return early if time not met.
@@ -291,6 +292,16 @@ function ESP.Update(player)
         end
     else
         if visuals.billboard then visuals.billboard.Enabled = false end
+    end
+end
+
+function ESP.Update()
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            task.spawn(function()
+                ESP.UpdatePlayer(player)
+            end)
+        end
     end
 end
 

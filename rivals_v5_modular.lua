@@ -207,31 +207,34 @@ local Config
         end
 
         safeCall(function()
-            if Config and Config.Main and Config.Main.Enabled then
-                -- Update Aimbot
-                if Modules["legit_aimbot"] and Modules["legit_aimbot"].Update then
-                    Modules["legit_aimbot"].Update(dt)
-                end
-                -- Update TriggerBot
-                if Modules["legit_triggerbot"] and Modules["legit_triggerbot"].Update then
-                    Modules["legit_triggerbot"].Update(dt)
-                end
-                -- Update SilentAim
-                if Modules["legit_silent_aim"] and Modules["legit_silent_aim"].Update then
-                    Modules["legit_silent_aim"].Update(dt)
-                end
-                -- Update World visuals (e.g., crosshair)
-                if Modules["visuals_world"] and Modules["visuals_world"].Update then
-                    Modules["visuals_world"].Update(dt)
-                end
-                -- Update Hitbox Expander
-                if Modules["legit_hitbox_expander"] and Modules["legit_hitbox_expander"].Update then
-                    Modules["legit_hitbox_expander"].Update(dt)
-                end
-                 -- Update Anti-Aim
-                if Modules["legit_anti_aim"] and Modules["legit_anti_aim"].Update then
-                    Modules["legit_anti_aim"].Update(dt)
-                end
+            -- Debug Print (Throttle)
+            if math.random() < 0.01 then
+                -- print("[Rivals V5] Main Loop Running...") 
+            end
+
+            -- Update Aimbot
+            if Modules["legit_aimbot"] and Modules["legit_aimbot"].Update then
+                Modules["legit_aimbot"].Update(dt)
+            end
+            -- Update TriggerBot
+            if Modules["legit_triggerbot"] and Modules["legit_triggerbot"].Update then
+                Modules["legit_triggerbot"].Update(dt)
+            end
+            -- Update SilentAim
+            if Modules["legit_silent_aim"] and Modules["legit_silent_aim"].Update then
+                Modules["legit_silent_aim"].Update(dt)
+            end
+            -- Update World visuals (e.g., crosshair)
+            if Modules["visuals_world"] and Modules["visuals_world"].Update then
+                Modules["visuals_world"].Update(dt)
+            end
+            -- Update Hitbox Expander
+            if Modules["legit_hitbox_expander"] and Modules["legit_hitbox_expander"].Update then
+                Modules["legit_hitbox_expander"].Update(dt)
+            end
+                -- Update Anti-Aim
+            if Modules["legit_anti_aim"] and Modules["legit_anti_aim"].Update then
+                Modules["legit_anti_aim"].Update(dt)
             end
         end)
     end)
@@ -245,15 +248,13 @@ local Config
         end
         
         safeCall(function()
-            if Config and Config.Main and Config.Main.Enabled then
-                -- Update ESP
-                if Modules["visuals_esp"] and Modules["visuals_esp"].Update then
-                     Modules["visuals_esp"].Update() -- Use internal loop
-                end
-                -- Update GUI
-                if Modules["ui_gui"] and Modules["ui_gui"].Update then
-                    Modules["ui_gui"].Update(dt)
-                end
+            -- Update ESP
+            if Modules["visuals_esp"] and Modules["visuals_esp"].Update then
+                    Modules["visuals_esp"].Update() -- Use internal loop
+            end
+            -- Update GUI
+            if Modules["ui_gui"] and Modules["ui_gui"].Update then
+                Modules["ui_gui"].Update(dt)
             end
         end)
     end)

@@ -172,7 +172,10 @@ function Common.IsVisible(target, part)
         Common.RaycastParams.FilterType = Enum.RaycastFilterType.Exclude
         Common.RaycastParams.IgnoreWater = true
     end
-    Common.RaycastParams.FilterDescendantsInstances = {LocalPlayer.Character, Camera}
+    
+    local filter = {Camera}
+    if LocalPlayer.Character then table.insert(filter, LocalPlayer.Character) end
+    Common.RaycastParams.FilterDescendantsInstances = filter
     
     local result
     local success = pcall(function()
