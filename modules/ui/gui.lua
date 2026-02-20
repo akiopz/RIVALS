@@ -19,25 +19,28 @@ local guiSize = Vector2.new(250, 400)
 -- Main GUI window drawing
 local guiBackground = Drawing.new("Square")
 guiBackground.Visible = false
+guiBackground.Transparency = 1
 guiBackground.Color = Color3.fromRGB(30, 30, 30)
 guiBackground.Thickness = 1
 guiBackground.Filled = true
-guiBackground.ZIndex = 100
+guiBackground.ZIndex = 1000
 
 local guiBorder = Drawing.new("Square")
 guiBorder.Visible = false
+guiBorder.Transparency = 1
 guiBorder.Color = Color3.fromRGB(50, 50, 50)
 guiBorder.Thickness = 2
 guiBorder.Filled = false
-guiBorder.ZIndex = 101
+guiBorder.ZIndex = 1001
 
 local guiTitle = Drawing.new("Text")
 guiTitle.Visible = false
+guiTitle.Transparency = 1
 guiTitle.Color = Color3.fromRGB(255, 255, 255)
 guiTitle.Text = "Rivals V5"
 guiTitle.Size = 18
 guiTitle.Center = true
-guiTitle.ZIndex = 102
+guiTitle.ZIndex = 1002
 
 -- Cleanup function for GUI elements
 table.insert(getgenv().Rivals_Cleanup_Functions, function()
@@ -131,10 +134,11 @@ end
 function GUI.AddToggle(label, configGroup, configKey)
     local toggleDrawing = Drawing.new("Text")
     toggleDrawing.Visible = false
-    toggleDrawing.Color = Color3.fromRGB(255, 255, 255)
-    toggleDrawing.Size = 14
+    toggleDrawing.Transparency = 1
+    toggleDrawing.Color = Color3.fromRGB(200, 200, 200)
+    toggleDrawing.Size = 16
     toggleDrawing.Center = false
-    toggleDrawing.ZIndex = 103
+    toggleDrawing.ZIndex = 1003
     
     table.insert(guiElements, {
         type = "toggle",
