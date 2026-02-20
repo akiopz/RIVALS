@@ -17,6 +17,9 @@ local updateInterval = 0.5 -- Update only 2 times per second
 function HitboxExpander.Update(dt)
     if not Config.HitboxExpander.Enabled then return end
     
+    -- Safety: Don't run if we are dead or loading
+    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
+
     -- Throttling: Check update interval
     if tick() - lastUpdate < updateInterval then return end
     lastUpdate = tick()

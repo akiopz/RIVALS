@@ -18,7 +18,12 @@ local CurrentTargetPart = nil
 local CurrentTargetCFrame = nil
 
 -- Update function to be called every frame
-function SilentAim.Update()
+function SilentAim.Update(dt)
+    -- Lazy Load Hook: If enabled but not hooked, install hooks now
+    if Config.SilentAim.Enabled and not getgenv().Rivals_SilentAim_Hooked then
+        SilentAim.Init()
+    end
+
     if not Config.SilentAim.Enabled then
         CurrentTarget = nil
         CurrentTargetPart = nil
@@ -107,6 +112,9 @@ end
 getgenv().Rivals_GetTarget = SilentAim.GetTarget
 
 function SilentAim.Init()
+    -- Only install hook if Silent Aim is ENABLED
+    if not Config.SilentAim.Enabled then return end
+
     -- Prevent multiple hooks stacking on re-execution
     if getgenv().Rivals_SilentAim_Hooked then return end
     getgenv().Rivals_SilentAim_Hooked = true

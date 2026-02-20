@@ -137,64 +137,97 @@ local function Init()
         -- Add other modules here as they are created
     }
 
-    for _, path in ipairs(modulePaths) do
-        local moduleName = path:match("modules/(.+).lua")
-        if moduleName then
-            moduleName = moduleName:gsub("/", "_")
-            local moduleSuccess, moduleErr = pcall(function()
-                Modules[moduleName] = RivalsLoad(path)
-                if Modules[moduleName] and Modules[moduleName].Init then
-                    Modules[moduleName].Init()
+    -- Async Loading
+    task.spawn(function()
+        for _, path in ipairs(modulePaths) do
+            local moduleName = path:match("modules/(.+).lua")
+            if moduleName then
+                moduleName = moduleName:gsub("/", "_")
+                local moduleSuccess, moduleErr = pcall(function()
+                    print("[RivalsLoad] Loading " .. path .. "...")
+                    Modules[moduleName] = RivalsLoad(path)
+                    if Modules[moduleName] and Modules[moduleName].Init then
+                        Modules[moduleName].Init()
+                    end
+                end)
+                if not moduleSuccess then 
+                    warn("Failed to load/init module " .. path .. ": " .. tostring(moduleErr)) 
                 end
-            end)
-            if not moduleSuccess then warn("Failed to load/init module " .. path .. ": " .. tostring(moduleErr)) end
+                task.wait(0.1) -- Prevent freeze
+            end
         end
-    end
+        
+        print("[Rivals V5] All Modules Loaded!")
+        
+        -- Cleanup Loader to prevent detection
+        getgenv().RivalsLoad = nil
+        
+        pcall(function()
+            StarterGui:SetCore("SendNotification", {
+                Title = "Rivals V5",
+                Text = "載入完成!",
+                Duration = 3
+            })
+        end)
+    end)
 
     -- Main loops
     RunService.Heartbeat:Connect(function(dt)
-        local Common = Modules.utils_common
-        local safeCall = Common and Common.SafeCall or pcall
+        if not Modules then return end -- Safety check
+        
+        -- Safe call wrapper
+        local safeCall = pcall
+        if Modules["utils_common"] and Modules["utils_common"].SafeCall then
+            safeCall = Modules["utils_common"].SafeCall
+        end
 
         safeCall(function()
             if Config and Config.Main and Config.Main.Enabled then
                 -- Update Aimbot
-                if Modules.legit_aimbot and Modules.legit_aimbot.Update then
-                    Modules.legit_aimbot.Update(dt)
+                if Modules["modules_legit_aimbot"] and Modules["modules_legit_aimbot"].Update then
+                    Modules["modules_legit_aimbot"].Update(dt)
                 end
                 -- Update TriggerBot
-                if Modules.legit_triggerbot and Modules.legit_triggerbot.Update then
-                    Modules.legit_triggerbot.Update(dt)
+                if Modules["modules_legit_triggerbot"] and Modules["modules_legit_triggerbot"].Update then
+                    Modules["modules_legit_triggerbot"].Update(dt)
                 end
                 -- Update SilentAim
-                if Modules.legit_silent_aim and Modules.legit_silent_aim.Update then
-                    Modules.legit_silent_aim.Update(dt)
+                if Modules["modules_legit_silent_aim"] and Modules["modules_legit_silent_aim"].Update then
+                    Modules["modules_legit_silent_aim"].Update(dt)
                 end
                 -- Update World visuals (e.g., crosshair)
-                if Modules.visuals_world and Modules.visuals_world.Update then
-                    Modules.visuals_world.Update(dt)
+                if Modules["modules_visuals_world"] and Modules["modules_visuals_world"].Update then
+                    Modules["modules_visuals_world"].Update(dt)
+                end
+                -- Update Hitbox Expander
+                if Modules["modules_legit_hitbox_expander"] and Modules["modules_legit_hitbox_expander"].Update then
+                    Modules["modules_legit_hitbox_expander"].Update(dt)
+                end
+                 -- Update Anti-Aim
+                if Modules["modules_legit_anti_aim"] and Modules["modules_legit_anti_aim"].Update then
+                    Modules["modules_legit_anti_aim"].Update(dt)
                 end
             end
         end)
     end)
 
     RunService.RenderStepped:Connect(function(dt)
-        local Common = Modules.utils_common
-        local safeCall = Common and Common.SafeCall or pcall
+        if not Modules then return end -- Safety check
+        
+        local safeCall = pcall
+        if Modules["utils_common"] and Modules["utils_common"].SafeCall then
+            safeCall = Modules["utils_common"].SafeCall
+        end
         
         safeCall(function()
             if Config and Config.Main and Config.Main.Enabled then
                 -- Update ESP
-                if Modules.visuals_esp and Modules.visuals_esp.Update then
-                    for _, player in ipairs(Players:GetPlayers()) do
-                        if player ~= LocalPlayer then
-                            Modules.visuals_esp.Update(player)
-                        end
-                    end
+                if Modules["modules_visuals_esp"] and Modules["modules_visuals_esp"].Update then
+                     Modules["modules_visuals_esp"].Update() -- Use internal loop
                 end
                 -- Update GUI
-                if Modules.ui_gui and Modules.ui_gui.Update then
-                    Modules.ui_gui.Update(dt)
+                if Modules["modules_ui_gui"] and Modules["modules_ui_gui"].Update then
+                    Modules["modules_ui_gui"].Update(dt)
                 end
             end
         end)
