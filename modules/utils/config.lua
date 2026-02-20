@@ -30,7 +30,12 @@ local Config = {
         KnockedCheck = true, -- [New] Ignore knocked players
         Key = Enum.UserInputType.MouseButton2, -- Right Click to Aim
         StickyAim = true, -- Keep locking the same target
-        StickyStrength = 0.8 -- (0-1) 1 = Instant Lock when close, 0 = No extra stickiness
+        StickyStrength = 0.8, -- (0-1) 1 = Instant Lock when close, 0 = No extra stickiness
+        VisibilityCheckInterval = 0.1, -- [New] Throttle visibility checks to prevent lag (seconds)
+        AimLock = false, -- [New] Keep aiming at target even if outside FOV (within AimLockStrength)
+        AimLockStrength = 0.5, -- [New] How much to "stick" to the target (0-1, 1 = full lock)
+        RCS = false, -- [New] Recoil Control System
+        RCSStrength = 0.8 -- [New] How much to compensate for recoil (0-1, 1 = full compensation)
     },
     SilentAim = {
         Enabled = false,

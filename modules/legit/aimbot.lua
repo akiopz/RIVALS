@@ -43,8 +43,17 @@ local function targetCheck(player, part)
     end
 
     -- Visibility check: If WallCheck is true, target must be visible.
-    if Config.Aimbot.WallCheck and not Common.IsVisible(player, part) then
-        return false
+    if Config.Aimbot.WallCheck then
+        local now = tick()
+        local interval = Config.Aimbot.VisibilityCheckInterval or 0.1 -- Default to 0.1s
+
+        -- Check if enough time has passed since last check for this player
+        if not cachedVisibility[player] or (now - lastVisibilityCheckTime > interval) then
+            cachedVisibility[player] = Common.IsVisible(player, part)
+            lastVisibilityCheckTime = now -- Update global last check time
+        end
+        
+        if not cachedVisibility[player] then return false end
     end
     return true
 end
@@ -155,6 +164,14 @@ function Aimbot.Update(dt)
     if Config.Aimbot.Prediction > 0 and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
         local velocity = target.Character.HumanoidRootPart.Velocity
         targetPosition = targetPosition + (velocity * Config.Aimbot.Prediction)
+    end
+
+    -- [NEW] Apply RCS offset to targetPosition
+    if Config.Aimbot.RCS and isAiming then
+        -- A simple RCS: apply a downward vertical offset to the target position
+        -- This is a simplified model. More advanced RCS might consider weapon recoil patterns.
+        -- The multiplier 0.5 is arbitrary and can be tuned.
+        targetPosition = targetPosition + Vector3.new(0, -Config.Aimbot.RCSStrength * 0.5, 0)
     end
 
     -- Calculate direction to target
