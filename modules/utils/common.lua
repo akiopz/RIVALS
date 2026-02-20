@@ -165,14 +165,18 @@ function Common.IsVisible(target, part)
     
     local origin = Camera.CFrame.Position
     local direction = part.Position - origin
-    local params = RaycastParams.new()
-    params.FilterType = Enum.RaycastFilterType.Exclude
-    params.FilterDescendantsInstances = {LocalPlayer.Character, Camera}
-    params.IgnoreWater = true
+    
+    -- Re-use RaycastParams for performance
+    if not Common.RaycastParams then
+        Common.RaycastParams = RaycastParams.new()
+        Common.RaycastParams.FilterType = Enum.RaycastFilterType.Exclude
+        Common.RaycastParams.IgnoreWater = true
+    end
+    Common.RaycastParams.FilterDescendantsInstances = {LocalPlayer.Character, Camera}
     
     local result
     local success = pcall(function()
-        result = Workspace:Raycast(origin, direction.Unit * (direction.Magnitude - 0.1), params)
+        result = Workspace:Raycast(origin, direction.Unit * (direction.Magnitude - 0.1), Common.RaycastParams)
     end)
     
     if not success then return false end -- Assume not visible on error

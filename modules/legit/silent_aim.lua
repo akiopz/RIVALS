@@ -125,6 +125,10 @@ function SilentAim.Init()
     local oldIndex
     local oldNamecall
     
+    local function getAngle(v1, v2)
+        return math.acos(math.clamp(v1.Unit:Dot(v2.Unit), -1, 1))
+    end
+
     local newIndex = newcclosure(function(self, k)
         -- FAST PATH: Only interfere if key is interesting
         if k ~= "Hit" and k ~= "Target" then
@@ -161,11 +165,19 @@ function SilentAim.Init()
                 local target, targetPart = SilentAim.GetTarget()
                 if target and targetPart then
                     local origin = args[1]
+                    local direction = args[2]
+                    
                     -- Check args validity
-                    if origin and args[2] then
-                        local direction = (targetPart.Position - origin).Unit * (args[2].Magnitude)
-                        args[2] = direction
-                        return oldNamecall(self, unpack(args))
+                    if origin and direction then
+                        local newDirection = (targetPart.Position - origin)
+                        
+                        -- [Safety] Max Angle Check (Limit to 15 degrees to prevent rage-like snaps)
+                        -- This prevents "shooting backwards" which triggers anti-cheat
+                        local angle = getAngle(direction, newDirection)
+                        if angle < math.rad(Config.SilentAim.FieldOfView or 15) then
+                             args[2] = newDirection.Unit * direction.Magnitude
+                             return oldNamecall(self, unpack(args))
+                        end
                     end
                 end
             end
@@ -175,9 +187,17 @@ function SilentAim.Init()
                  if target and targetPart then
                      local ray = args[1]
                      if ray then
-                         local newRay = Ray.new(ray.Origin, (targetPart.Position - ray.Origin).Unit * 5000)
-                         args[1] = newRay
-                         return oldNamecall(self, unpack(args))
+                         local origin = ray.Origin
+                         local direction = ray.Direction
+                         local newDirection = (targetPart.Position - origin)
+                         
+                         -- [Safety] Max Angle Check
+                         local angle = getAngle(direction, newDirection)
+                         if angle < math.rad(Config.SilentAim.FieldOfView or 15) then
+                             local newRay = Ray.new(origin, newDirection.Unit * 5000)
+                             args[1] = newRay
+                             return oldNamecall(self, unpack(args))
+                         end
                      end
                  end
             end
@@ -198,6 +218,8 @@ function SilentAim.Init()
         end
     else
         -- Fallback for older executors
+        warn("Executor does not support hookmetamethod")
+    end
         oldIndex = mt.__index
         oldNamecall = mt.__namecall
         mt.__index = newIndex
