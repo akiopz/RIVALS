@@ -17,12 +17,19 @@ function AntiAim.Update(dt)
     local humanoid = LocalPlayer.Character:FindFirstChild("Humanoid")
     
     -- Yaw Manipulation
-    if Config.AntiAim.Type == "Spin" then
-        rootPart.CFrame = rootPart.CFrame * CFrame.Angles(0, math.rad(Config.AntiAim.SpinSpeed), 0)
-    elseif Config.AntiAim.Type == "Jitter" then
-        rootPart.CFrame = rootPart.CFrame * CFrame.Angles(0, math.rad(math.random(-Config.AntiAim.YawOffset, Config.AntiAim.YawOffset)), 0)
-    elseif Config.AntiAim.Type == "Backward" then
-        rootPart.CFrame = CFrame.new(rootPart.Position) * CFrame.Angles(0, math.rad(180), 0)
+    local success, err = pcall(function()
+        if Config.AntiAim.Type == "Spin" then
+            rootPart.CFrame = rootPart.CFrame * CFrame.Angles(0, math.rad(Config.AntiAim.SpinSpeed), 0)
+        elseif Config.AntiAim.Type == "Jitter" then
+            rootPart.CFrame = rootPart.CFrame * CFrame.Angles(0, math.rad(math.random(-Config.AntiAim.YawOffset, Config.AntiAim.YawOffset)), 0)
+        elseif Config.AntiAim.Type == "Backward" then
+            rootPart.CFrame = CFrame.new(rootPart.Position) * CFrame.Angles(0, math.rad(180), 0)
+        end
+    end)
+    
+    if not success then
+        -- Reset CFrame if Anti-Aim caused NaN/Inf
+        rootPart.CFrame = CFrame.new(rootPart.Position)
     end
     
     -- Pitch Manipulation (Visual Only mostly, unless using specific exploit hooks)

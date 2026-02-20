@@ -36,6 +36,7 @@ function SilentAim.Update(dt)
         if Common.IsTrap(player) then return false end
 
         -- If Visible Check is disabled, everything is valid
+        if Config.Aimbot.Mode == "Rage" then return true end
         if not Config.SilentAim.VisibleCheck then return true end
         
         -- Check standard visibility
@@ -69,7 +70,10 @@ function SilentAim.Update(dt)
     local mousePos = Common.GetSafeService("UserInputService"):GetMouseLocation()
     local dist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
 
-    if dist > Config.Aimbot.FieldOfView then -- Using Aimbot FOV for now
+    local fov = Config.SilentAim.FieldOfView or Config.Aimbot.FieldOfView or 50
+    if Config.Aimbot.Mode == "Rage" then fov = 9999 end
+
+    if dist > fov then
         CurrentTarget = nil
         CurrentTargetPart = nil
         CurrentTargetCFrame = nil
@@ -175,8 +179,11 @@ function SilentAim.Init()
                         -- This prevents "shooting backwards" which triggers anti-cheat
                         local angle = getAngle(direction, newDirection)
                         if angle < math.rad(Config.SilentAim.FieldOfView or 15) then
-                             args[2] = newDirection.Unit * direction.Magnitude
-                             return oldNamecall(self, unpack(args))
+                             -- [CRITICAL FIX] Prevent NaN/Inf errors
+                             if newDirection.Magnitude > 0.1 then
+                                 args[2] = newDirection.Unit * direction.Magnitude
+                                 return oldNamecall(self, unpack(args))
+                             end
                         end
                     end
                 end
@@ -194,9 +201,12 @@ function SilentAim.Init()
                          -- [Safety] Max Angle Check
                          local angle = getAngle(direction, newDirection)
                          if angle < math.rad(Config.SilentAim.FieldOfView or 15) then
-                             local newRay = Ray.new(origin, newDirection.Unit * 5000)
-                             args[1] = newRay
-                             return oldNamecall(self, unpack(args))
+                             -- [CRITICAL FIX] Prevent NaN/Inf errors
+                             if newDirection.Magnitude > 0.1 then
+                                 local newRay = Ray.new(origin, newDirection.Unit * 5000)
+                                 args[1] = newRay
+                                 return oldNamecall(self, unpack(args))
+                             end
                          end
                      end
                  end

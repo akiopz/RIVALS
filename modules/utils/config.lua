@@ -12,15 +12,16 @@ local Config = {
     },
     Aimbot = {
         Enabled = true, -- Default ON
-        AimMethod = "Mouse", -- Force Mouse Aim
+        Mode = "Legit", -- "Legit" or "Rage"
+        AimMethod = "Camera", -- Changed to Camera for better smoothness
         TeamCheck = true,
         TargetPart = "Head", -- Default, will be overridden if NearestPart is on
         Sensitivity = 1, -- 0 = Rage, 1 = Legit
-        Smoothing = 2, -- Smoother by default
-        FOV = 120, -- Increased default
+        Smoothing = 5, -- Smoother by default (Higher = Slower/Smoother)
+        FOV = 180, -- Increased default
         ShowFOV = true,
         NearestPart = true, -- Auto select nearest part to cursor
-        Prediction = 0.13, -- Prediction factor (velocity * time)
+        Prediction = 0.165, -- Prediction factor (velocity * time)
         DynamicPrediction = true, -- [New] Auto-adjust prediction based on distance
         Shake = 0, -- Human-like shake intensity
         ReactionTime = 0, -- ms delay before aiming

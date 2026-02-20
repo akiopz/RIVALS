@@ -212,9 +212,8 @@ local Config
             end
 
             -- Update Aimbot
-            if Modules["legit_aimbot"] and Modules["legit_aimbot"].Update then
-                Modules["legit_aimbot"].Update(dt)
-            end
+            -- Moved to RenderStepped for smoother camera movement
+            
             -- Update TriggerBot
             if Modules["legit_triggerbot"] and Modules["legit_triggerbot"].Update then
                 Modules["legit_triggerbot"].Update(dt)
@@ -247,6 +246,11 @@ local Config
         end
         
         safeCall(function()
+            -- Update Aimbot
+            if Modules["legit_aimbot"] and Modules["legit_aimbot"].Update then
+                Modules["legit_aimbot"].Update(dt)
+            end
+            
             -- Update ESP
             if Modules["visuals_esp"] and Modules["visuals_esp"].Update then
                     Modules["visuals_esp"].Update() -- Use internal loop
