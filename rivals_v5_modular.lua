@@ -95,7 +95,7 @@ local function Init()
         -- "modules/legit/silent_aim.lua", -- Disabled for testing
         -- "modules/visuals/esp.lua",    -- Disabled for testing
         -- "modules/visuals/world.lua",  -- Disabled for testing
-        "modules/ui/gui.lua",
+        -- "modules/ui/gui.lua",         -- Disabled for testing
         -- Add other modules here as they are created
     }
 
