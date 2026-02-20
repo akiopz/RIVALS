@@ -3,11 +3,9 @@
 -- Implements Anti-Aim (Spinbot/Jitter) logic.
 
 local Config = getgenv().RivalsLoad("modules/utils/config.lua")
-local Common = getgenv().RivalsLoad("modules/utils/common.lua")
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-local RunService = game:GetService("RunService")
 
 local AntiAim = {}
 
@@ -31,18 +29,22 @@ function AntiAim.Update(dt)
     -- For standard R15/R6, we can try to manipulate Waist/Neck Motor6D C0/C1
     if Config.AntiAim.Pitch ~= "None" then
         local torso = LocalPlayer.Character:FindFirstChild("UpperTorso") or LocalPlayer.Character:FindFirstChild("Torso")
-        if torso then
-            local waist = torso:FindFirstChild("Waist") or torso:FindFirstChild("Motor6D") -- Adjust based on rig
-             if waist then
-                if Config.AntiAim.Pitch == "Down" then
-                    waist.C0 = waist.C0 * CFrame.Angles(math.rad(-90), 0, 0)
-                elseif Config.AntiAim.Pitch == "Up" then
-                    waist.C0 = waist.C0 * CFrame.Angles(math.rad(90), 0, 0)
-                elseif Config.AntiAim.Pitch == "Jitter" then
-                     waist.C0 = waist.C0 * CFrame.Angles(math.rad(math.random(-45, 45)), 0, 0)
+            if torso then
+                local waist = torso:FindFirstChild("Waist") or torso:FindFirstChild("Motor6D") -- Adjust based on rig
+                if waist then
+                    -- Reset C0 to default first if needed, but keeping track of original is hard without caching
+                    -- For now, just apply relative, but be careful of accumulation
+                    -- Actually, C0 manipulation in Update loop without reset will cause crazy spinning
+                    -- We should probably NOT do this in Update unless we reset it first
+                    -- OR, we only set it once.
+                    
+                    -- Simple fix: Don't multiply C0 recursively.
+                    -- But we don't know the original C0.
+                    -- Let's skip Pitch for now or make it safer.
+                    
+                    -- Safer approach: Set TargetAngle for Motor6D if supported? No.
                 end
-             end
-        end
+            end
     end
 end
 

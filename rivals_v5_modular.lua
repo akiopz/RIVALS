@@ -118,9 +118,8 @@ local Config
         
         -- [Bypass] Anti-Tamper / Environment Cleanup
         -- Clean up previous environment if exists to prevent detection
-        if getgenv().RivalsLoad then
-             getgenv().RivalsLoad = nil
-        end
+        -- Note: We must NOT clear RivalsLoad here because modules use it during initialization!
+        -- It will be cleared after all modules are loaded (see line ~188)
         
         -- Clear previous connections and run cleanup functions on re-injection
         if getgenv().Rivals_Connections then

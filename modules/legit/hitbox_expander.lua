@@ -5,9 +5,9 @@
 local Config = getgenv().RivalsLoad("modules/utils/config.lua")
 local Common = getgenv().RivalsLoad("modules/utils/common.lua")
 
-local Players = Common.GetSafeService("Players")
+local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-local RunService = Common.GetSafeService("RunService")
+local RunService = game:GetService("RunService")
 
 local HitboxExpander = {}
 
@@ -32,8 +32,8 @@ function HitboxExpander.Update(dt)
             if not isTeammate then
                 local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
                 if rootPart then
-                    rootPart.Size = Vector3.new(Config.HitboxExpander.Size, Config.HitboxExpander.Size, Config.HitboxExpander.Size)
-                    rootPart.Transparency = Config.HitboxExpander.Transparency
+                    rootPart.Size = Vector3.new(Config.HitboxExpander.Size or 2, Config.HitboxExpander.Size or 2, Config.HitboxExpander.Size or 2)
+                    rootPart.Transparency = Config.HitboxExpander.Transparency or 0.5
                     rootPart.CanCollide = false
                 end
             end
