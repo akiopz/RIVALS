@@ -6,7 +6,7 @@ end
 
 local Config = {
     Main = {
-        Enabled = true, -- Global Switch
+        Enabled = false, -- Default OFF for safety
     },
     Aimbot = {
         Enabled = false, -- Default OFF for safety
@@ -139,6 +139,7 @@ local Config = {
         Enabled = false
     },
     World = {
+        Crosshair = false,
         SkyColor = {
             Enabled = false,
             Color = Color3.fromRGB(135, 206, 235), -- Default Sky Blue

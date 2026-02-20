@@ -63,6 +63,7 @@ local Config
 
 -- Main script initialization
 local function Init()
+    task.wait(2) -- Wait for game to load
     -- Clear previous connections and run cleanup functions on re-injection
     if getgenv().Rivals_Connections then
         for _, conn in pairs(getgenv().Rivals_Connections) do
@@ -115,7 +116,7 @@ local function Init()
     -- Main loops
     RunService.Heartbeat:Connect(function(dt)
         pcall(function()
-            if Config and Config.Enabled then
+            if Config and Config.Main and Config.Main.Enabled then
                 -- Update Aimbot
                 if Modules.legit_aimbot and Modules.legit_aimbot.Update then
                     Modules.legit_aimbot.Update(dt)
@@ -134,7 +135,7 @@ local function Init()
 
     RunService.RenderStepped:Connect(function(dt)
         pcall(function()
-            if Config and Config.Enabled then
+            if Config and Config.Main and Config.Main.Enabled then
                 -- Update ESP
                 if Modules.visuals_esp and Modules.visuals_esp.Update then
                     for _, player in ipairs(Players:GetPlayers()) do
