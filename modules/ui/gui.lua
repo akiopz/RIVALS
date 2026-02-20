@@ -143,7 +143,7 @@ function GUI.AddToggle(label, configGroup, configKey)
         configKey = configKey,
         drawing = toggleDrawing
     })
-    updateGuiElements()
+    -- updateGuiElements() -- Optimization: Don't update on every add
 end
 
 function GUI.Update(dt)
@@ -152,6 +152,28 @@ function GUI.Update(dt)
 end
 
 function GUI.Init()
+    -- Add initial toggles with delay to prevent detection
+    local toggles = {
+        {"總開關", "Main", "Enabled"},
+        {"自瞄", "Aimbot", "Enabled"},
+        {"靜默瞄準", "SilentAim", "Enabled"},
+        {"方框透視", "ESP", "Boxes"},
+        {"名稱透視", "ESP", "Names"},
+        {"血條透視", "ESP", "Health"},
+        {"骨骼透視", "ESP", "Skeleton"},
+        {"隊友檢查", "ESP", "TeamCheck"},
+        {"十字準星", "World", "Crosshair"}
+    }
+
+    for _, toggle in ipairs(toggles) do
+        GUI.AddToggle(toggle[1], toggle[2], toggle[3])
+        task.wait(0.05) -- Small delay between creating drawing objects
+    end
+
+    updateGuiElements() -- Initial update
+    
+    task.wait(0.5) -- Wait before enabling input
+
     -- Register input handlers
     table.insert(getgenv().Rivals_Connections, UserInputService.InputBegan:Connect(onInputBegan))
     table.insert(getgenv().Rivals_Connections, UserInputService.InputEnded:Connect(onInputEnded))
@@ -160,19 +182,6 @@ function GUI.Init()
             onMouseMoved(input)
         end
     end))
-
-    -- Add initial toggles
-    GUI.AddToggle("總開關", "Main", "Enabled")
-    GUI.AddToggle("自瞄", "Aimbot", "Enabled")
-    GUI.AddToggle("靜默瞄準", "SilentAim", "Enabled")
-    GUI.AddToggle("方框透視", "ESP", "Boxes")
-    GUI.AddToggle("名稱透視", "ESP", "Names")
-    GUI.AddToggle("血條透視", "ESP", "Health")
-    GUI.AddToggle("骨骼透視", "ESP", "Skeleton")
-    GUI.AddToggle("隊友檢查", "ESP", "TeamCheck")
-    GUI.AddToggle("十字準星", "World", "Crosshair")
-
-    updateGuiElements() -- Initial update
 end
 
 return GUI
