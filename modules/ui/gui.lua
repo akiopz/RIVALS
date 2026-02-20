@@ -66,7 +66,7 @@ local function updateGuiElements()
     for _, element in pairs(guiElements) do
         if element.type == "toggle" then
             element.drawing.Position = Vector2.new(guiPosition.X + 10, currentY)
-            element.drawing.Text = element.label .. ": " .. (Config[element.configGroup][element.configKey] and "ON" or "OFF")"OFF")
+            element.drawing.Text = element.label .. ": " .. (Config[element.configGroup][element.configKey] and "ON" or "OFF")
             element.drawing.Visible = isGuiVisible
             currentY = currentY + 20
         end
@@ -161,11 +161,11 @@ function GUI.Init()
         {"Master Switch", "Main", "Enabled"},
         -- {"Aimbot", "Aimbot", "Enabled"},
         -- {"Silent Aim", "SilentAim", "Enabled"},
-        -- {"ESP Box", "ESP", "Boxes"},
-        -- {"ESP Name", "ESP", "Names"},
-        -- {"ESP Health", "ESP", "Health"},
-        -- {"ESP Skeleton", "ESP", "Skeleton"},
-        -- {"Team Check", "ESP", "TeamCheck"},
+        {"ESP Box", "ESP", "Boxes"},
+        {"ESP Name", "ESP", "Names"},
+        {"ESP Health", "ESP", "Health"},
+        {"ESP Skeleton", "ESP", "Skeleton"},
+        {"Team Check", "ESP", "TeamCheck"},
         {"Crosshair", "World", "Crosshair"}
     }
 

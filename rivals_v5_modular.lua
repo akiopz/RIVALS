@@ -93,7 +93,7 @@ local function Init()
         "modules/utils/common.lua",
         -- "modules/legit/aimbot.lua",
         -- "modules/legit/silent_aim.lua",
-        -- "modules/visuals/esp.lua",
+        "modules/visuals/esp.lua",
         -- "modules/visuals/world.lua",
         "modules/ui/gui.lua",
         -- Add other modules here as they are created
