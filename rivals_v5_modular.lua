@@ -91,10 +91,10 @@ local function Init()
     -- Load other modules
     local modulePaths = {
         "modules/utils/common.lua",
-        -- "modules/legit/aimbot.lua",   -- Disabled for testing
-        -- "modules/legit/silent_aim.lua", -- Disabled for testing
-        -- "modules/visuals/esp.lua",    -- Disabled for testing
-        -- "modules/visuals/world.lua",  -- Disabled for testing
+        "modules/legit/aimbot.lua",
+        "modules/legit/silent_aim.lua",
+        "modules/visuals/esp.lua",
+        "modules/visuals/world.lua",
         "modules/ui/gui.lua",
         -- Add other modules here as they are created
     }

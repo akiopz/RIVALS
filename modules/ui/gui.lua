@@ -10,7 +10,7 @@ local Drawing = Drawing or getgenv().Drawing -- Ensure Drawing library is availa
 local GUI = {}
 
 local guiElements = {}
-local isGuiVisible = false
+local isGuiVisible = true -- Default to visible
 local isDragging = false
 local dragOffset = Vector2.new(0, 0)
 local guiPosition = Vector2.new(100, 100)
@@ -170,6 +170,12 @@ function GUI.Init()
         task.wait(0.05) -- Small delay between creating drawing objects
     end
 
+    -- Ensure GUI is visible initially
+    isGuiVisible = true
+    guiBackground.Visible = true
+    guiBorder.Visible = true
+    guiTitle.Visible = true
+    
     updateGuiElements() -- Initial update
     
     task.wait(0.5) -- Wait before enabling input
