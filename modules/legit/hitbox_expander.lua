@@ -5,9 +5,9 @@
 local Config = getgenv().RivalsLoad("modules/utils/config.lua")
 local Common = getgenv().RivalsLoad("modules/utils/common.lua")
 
-local Players = game:GetService("Players")
+local Players = Common.GetSafeService("Players")
 local LocalPlayer = Players.LocalPlayer
-local RunService = game:GetService("RunService")
+local RunService = Common.GetSafeService("RunService")
 
 local HitboxExpander = {}
 

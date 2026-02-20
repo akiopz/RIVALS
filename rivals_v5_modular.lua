@@ -2,13 +2,15 @@
 ---@diagnostic disable: unused-local
 ---@diagnostic disable: deprecated
 ---@diagnostic disable: undefined-global
+---@diagnostic disable: inject-field
+---@diagnostic disable: undefined-field
 -- Rivals V5 Modular Script
 -- Main entry point for the modular exploit.
 -- This script loads all other modules and manages their lifecycle.
 
-print("----------------------------------------------------------------")
-print("[Rivals V5] STARTING LOCAL EXECUTION - VERSION: ScreenGui Rewrite")
-print("----------------------------------------------------------------")
+-- print("----------------------------------------------------------------")
+-- print("[Rivals V5] STARTING LOCAL EXECUTION - VERSION: ScreenGui Rewrite")
+-- print("----------------------------------------------------------------")
 
 local function GetSafeService(service_name)
     local service = game:GetService(service_name)
@@ -44,13 +46,13 @@ local function RivalsLoad(path)
     local content
     local success
     
-    print("[RivalsLoad] Attempting to load: " .. path)
+    -- print("[RivalsLoad] Attempting to load: " .. path)
 
     -- Try loading from local file first
     if isfile and isfile(path) then
         success, content = pcall(readfile, path)
         if success then
-            print("[RivalsLoad] Loaded LOCAL file: " .. path)
+            -- print("[RivalsLoad] Loaded LOCAL file: " .. path)
         else
             warn("[RivalsLoad] Failed to read LOCAL file: " .. path)
         end
@@ -61,7 +63,7 @@ local function RivalsLoad(path)
     -- If local file not found or failed, try GitHub
     if not success or not content then
         if getgenv().GITHUB_RAW_URL then
-            print("[RivalsLoad] Attempting GitHub load for: " .. path)
+            -- print("[RivalsLoad] Attempting GitHub load for: " .. path)
             local moduleUrl = getgenv().GITHUB_RAW_URL .. path
             success, content = pcall(function()
                 return game:HttpGet(moduleUrl, true)
@@ -144,7 +146,7 @@ local function Init()
             if moduleName then
                 moduleName = moduleName:gsub("/", "_")
                 local moduleSuccess, moduleErr = pcall(function()
-                    print("[RivalsLoad] Loading " .. path .. "...")
+                    -- print("[RivalsLoad] Loading " .. path .. "...")
                     Modules[moduleName] = RivalsLoad(path)
                     if Modules[moduleName] and Modules[moduleName].Init then
                         Modules[moduleName].Init()
@@ -157,7 +159,7 @@ local function Init()
             end
         end
         
-        print("[Rivals V5] All Modules Loaded!")
+        -- print("[Rivals V5] All Modules Loaded!")
         
         -- Cleanup Loader to prevent detection
         getgenv().RivalsLoad = nil
@@ -233,7 +235,7 @@ local function Init()
         end)
     end)
 
-    print("[Rivals V5] Script Loaded Successfully!")
+    -- print("[Rivals V5] Script Loaded Successfully!")
     pcall(function()
         StarterGui:SetCore("SendNotification", {
             Title = "Rivals V5",

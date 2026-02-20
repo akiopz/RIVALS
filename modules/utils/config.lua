@@ -1,4 +1,6 @@
 ---@diagnostic disable: undefined-global
+---@diagnostic disable: undefined-field
+---@diagnostic disable: inject-field
 -- Config Singleton Pattern
 if getgenv().Rivals_Config_Instance then
     return getgenv().Rivals_Config_Instance

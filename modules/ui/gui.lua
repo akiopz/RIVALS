@@ -22,6 +22,7 @@ local GUI = {}
 local guiElements = {}
 local isGuiVisible = true
 local currentTab = "Legit" -- Default Tab
+local particles = {} -- Store particle data
 
 -- Theme
 local Theme = {
@@ -32,6 +33,38 @@ local Theme = {
     TextDim = Color3.fromRGB(180, 180, 180),
     Border = Color3.fromRGB(45, 45, 45)
 }
+
+-- [Dynamic Background] Initialize Particles
+function GUI.InitParticles(parent)
+    local particleContainer = Instance.new("Frame")
+    particleContainer.Name = "Particles"
+    particleContainer.Size = UDim2.new(1, 0, 1, 0)
+    particleContainer.BackgroundTransparency = 1
+    particleContainer.ZIndex = 0 -- Behind everything
+    particleContainer.Parent = parent
+    
+    for i = 1, 40 do
+        local size = math.random(2, 5)
+        local p = Instance.new("Frame")
+        p.Name = "Particle"
+        p.Size = UDim2.new(0, size, 0, size)
+        p.Position = UDim2.new(math.random(), 0, math.random(), 0)
+        p.BackgroundColor3 = Theme.Accent
+        p.BackgroundTransparency = math.random(5, 9) / 10 -- 0.5 to 0.9
+        p.BorderSizePixel = 0
+        p.Parent = particleContainer
+        
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = UDim.new(1, 0)
+        corner.Parent = p
+        
+        table.insert(particles, {
+            Instance = p,
+            Speed = math.random(5, 20) / 10000, -- Slow movement
+            Direction = Vector2.new(math.random(-10, 10), math.random(-10, 10)).Unit
+        })
+    end
+end
 
 -- Create ScreenGui with Randomized Name (Anti-Detection)
 local function randomString(length)
@@ -69,7 +102,11 @@ mainFrame.BorderSizePixel = 1
 mainFrame.BorderColor3 = Theme.Border
 mainFrame.Active = true
 mainFrame.Draggable = true
+mainFrame.ClipsDescendants = true -- Keep particles inside
 mainFrame.Parent = screenGui
+
+-- Initialize Dynamic Background
+GUI.InitParticles(mainFrame)
 
 -- Rounded Corners
 local uiCorner = Instance.new("UICorner")
@@ -90,13 +127,15 @@ titleLabel.TextXAlignment = Enum.TextXAlignment.Left
 titleLabel.Parent = mainFrame
 
 -- Tab Container
-local tabContainer = Instance.new("Frame")
-tabContainer.Name = "TabContainer"
-tabContainer.Size = UDim2.new(0, 120, 1, -50)
-tabContainer.Position = UDim2.new(0, 10, 0, 45)
-tabContainer.BackgroundColor3 = Theme.DarkBackground
-tabContainer.BorderSizePixel = 0
-tabContainer.Parent = mainFrame
+    local tabContainer = Instance.new("Frame")
+    tabContainer.Name = "TabContainer"
+    tabContainer.Size = UDim2.new(0, 120, 1, -50)
+    tabContainer.Position = UDim2.new(0, 10, 0, 45)
+    tabContainer.BackgroundColor3 = Theme.DarkBackground
+    tabContainer.BackgroundTransparency = 0.5 -- Semi-transparent for dynamic background
+    tabContainer.BorderSizePixel = 0
+    tabContainer.ZIndex = 2 -- Above particles
+    tabContainer.Parent = mainFrame
 
 local tabCorner = Instance.new("UICorner")
 tabCorner.CornerRadius = UDim.new(0, 4)
@@ -114,19 +153,70 @@ tabPadding.PaddingRight = UDim.new(0, 5)
 tabPadding.Parent = tabContainer
 
 -- Content Container
-local contentContainer = Instance.new("Frame")
-contentContainer.Name = "ContentContainer"
-contentContainer.Size = UDim2.new(1, -145, 1, -50)
-contentContainer.Position = UDim2.new(0, 140, 0, 45)
-contentContainer.BackgroundColor3 = Theme.DarkBackground
-contentContainer.BorderSizePixel = 0
-contentContainer.Parent = mainFrame
+    local contentContainer = Instance.new("Frame")
+    contentContainer.Name = "ContentContainer"
+    contentContainer.Size = UDim2.new(1, -145, 1, -50)
+    contentContainer.Position = UDim2.new(0, 140, 0, 45)
+    contentContainer.BackgroundColor3 = Theme.DarkBackground
+    contentContainer.BackgroundTransparency = 0.5 -- Semi-transparent
+    contentContainer.BorderSizePixel = 0
+    contentContainer.ZIndex = 2 -- Above particles
+    contentContainer.Parent = mainFrame
 
 local contentCorner = Instance.new("UICorner")
-contentCorner.CornerRadius = UDim.new(0, 4)
-contentCorner.Parent = contentContainer
+    contentCorner.CornerRadius = UDim.new(0, 4)
+    contentCorner.Parent = contentContainer
+    
+    -- [Universal] Mobile Toggle Button
+    if Common.IsMobile then
+        local mobileToggle = Instance.new("ImageButton")
+        mobileToggle.Name = "MobileToggle"
+        mobileToggle.Size = UDim2.new(0, 50, 0, 50)
+        mobileToggle.Position = UDim2.new(0.1, 0, 0.1, 0) -- Top Left
+        mobileToggle.BackgroundColor3 = Theme.DarkBackground
+        mobileToggle.BackgroundTransparency = 0.5
+        mobileToggle.Image = "rbxassetid://3926305904" -- Settings Icon
+        mobileToggle.ImageColor3 = Theme.Accent
+        mobileToggle.Parent = screenGui
+        
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = UDim.new(1, 0)
+        corner.Parent = mobileToggle
+        
+        -- Drag Logic for Button
+        local dragging, dragInput, dragStart, startPos
+        mobileToggle.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+                dragging = true
+                dragStart = input.Position
+                startPos = mobileToggle.Position
+            end
+        end)
+        
+        mobileToggle.InputChanged:Connect(function(input)
+            if dragging and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then
+                local delta = input.Position - dragStart
+                mobileToggle.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            end
+        end)
+        
+        mobileToggle.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+                dragging = false
+            end
+        end)
+        
+        mobileToggle.MouseButton1Click:Connect(function()
+            isGuiVisible = not isGuiVisible
+            mainFrame.Visible = isGuiVisible
+        end)
+        
+        -- Resize Main Frame for Mobile
+        mainFrame.Size = UDim2.new(0.6, 0, 0.6, 0)
+        mainFrame.Position = UDim2.new(0.2, 0, 0.2, 0)
+    end
 
--- Toggle GUI Keybind (Insert)
+    -- Toggle GUI Keybind (Insert)
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if input.KeyCode == Enum.KeyCode.Insert then
         isGuiVisible = not isGuiVisible
@@ -418,7 +508,33 @@ function GUI.Init()
 end
 
 function GUI.Update(dt)
-    -- Placeholder
+    -- Update Particles
+    if isGuiVisible and #particles > 0 then
+        for _, p in ipairs(particles) do
+            local currentPos = p.Instance.Position
+            local dx = p.Direction.X * p.Speed
+            local dy = p.Direction.Y * p.Speed
+            
+            local newX = currentPos.X.Scale + dx
+            local newY = currentPos.Y.Scale + dy
+            
+            -- Bounce off walls
+            if newX < 0 or newX > 1 then
+                p.Direction = Vector2.new(-p.Direction.X, p.Direction.Y)
+                newX = math.clamp(newX, 0, 1)
+            end
+            
+            if newY < 0 or newY > 1 then
+                p.Direction = Vector2.new(p.Direction.X, -p.Direction.Y)
+                newY = math.clamp(newY, 0, 1)
+            end
+            
+            p.Instance.Position = UDim2.new(newX, 0, newY, 0)
+            
+            -- Twinkle Effect
+            p.Instance.BackgroundTransparency = 0.6 + 0.3 * math.sin(tick() + p.Speed * 10000)
+        end
+    end
 end
 
 return GUI

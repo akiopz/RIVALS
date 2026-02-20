@@ -5,16 +5,17 @@
 local Config = getgenv().RivalsLoad("modules/utils/config.lua")
 local Common = getgenv().RivalsLoad("modules/utils/common.lua")
 
-local Players = game:GetService("Players")
+local Players = Common.GetSafeService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
+local UserInputService = Common.GetSafeService("UserInputService")
 
 local TriggerBot = {}
 
 function TriggerBot.Update(dt)
     if not Config.TriggerBot.Enabled then return end
 
-    local mouseLocation = game:GetService("UserInputService"):GetMouseLocation()
+    local mouseLocation = UserInputService:GetMouseLocation()
     local ray = Camera:ViewportPointToRay(mouseLocation.X, mouseLocation.Y)
     
     local raycastParams = RaycastParams.new()

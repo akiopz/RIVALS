@@ -1,87 +1,125 @@
 ---@diagnostic disable: deprecated
 ---@diagnostic disable: undefined-global
 ---@diagnostic disable: param-type-mismatch
--- loader.lua
--- This script is responsible for downloading modules.json and then loading the main script.
+---@diagnostic disable: inject-field
+---@diagnostic disable: undefined-field
+---@diagnostic disable: lowercase-global
+-- Rivals V5 Loader (Enhanced)
+-- [Secure] [Fast] [Reliable]
 
-getgenv().GITHUB_RAW_URL = "https://raw.githubusercontent.com/akiopz/RIVALS/main/"
+local function Bootstrap()
+    -- 1. [Environment Check]
+    if not getgenv then
+        -- Polyfill for executors without getgenv (e.g. some mobile executors)
+        getgenv = function() return _G end
+    end
 
-local function loadScript()
-    local success, modulesJsonContent = pcall(function()
-        return game:HttpGet(GITHUB_RAW_URL .. "modules.json", true)
-    end)
+    -- 2. [Setup Global Config]
+    getgenv().GITHUB_RAW_URL = "https://raw.githubusercontent.com/akiopz/RIVALS/main/"
+    
+    -- 3. [Secure HTTP Get]
+    local function SecureGet(url)
+        local content = nil
+        local success = false
+        
+        -- Try request() (Standard / Electron / Synapse)
+        if request or http_request or (syn and syn.request) then
+            local reqFunc = request or http_request or (syn and syn.request)
+            local response = reqFunc({
+                Url = url,
+                Method = "GET",
+                Headers = {
+                    ["User-Agent"] = "Roblox/WinInet", -- Mimic Roblox
+                    ["Cache-Control"] = "no-cache"
+                }
+            })
+            if response and response.Body then
+                content = response.Body
+                success = true
+            end
+        end
+        
+        -- Fallback to game:HttpGet
+        if not success then
+            success, content = pcall(function()
+                return game:HttpGet(url, true)
+            end)
+        end
+        
+        return success, content
+    end
 
-    -- If GitHub fetch fails, try local file
+    -- 4. [Load Configuration]
+    local configUrl = getgenv().GITHUB_RAW_URL .. "modules.json"
+    local success, modulesJsonContent = SecureGet(configUrl)
+
+    -- [Fallback] Try local file if network fails
     if not success or not modulesJsonContent then
         if isfile and isfile("modules.json") then
-            warn("[Rivals Loader] Failed to fetch from GitHub, trying local file...")
             success, modulesJsonContent = pcall(readfile, "modules.json")
         end
     end
 
     if not success or not modulesJsonContent then
-        warn("[Rivals Loader] Failed to download/read modules.json: " .. tostring(modulesJsonContent))
+        warn("[Loader] Failed to fetch config.")
         game:GetService("StarterGui"):SetCore("SendNotification", {
-            Title = "Rivals V5 Loader",
-            Text = "無法下載模組配置！",
-            Duration = 5,
-            Icon = "rbxassetid://6675147490"
+            Title = "Rivals Loader",
+            Text = "無法連接伺服器 (Config Error)",
+            Duration = 5
         })
         return
     end
 
-    local modulesData = game:GetService("HttpService"):JSONDecode(modulesJsonContent)
+    -- 5. [Parse Config]
+    local HttpService = game:GetService("HttpService")
+    local modulesData = HttpService:JSONDecode(modulesJsonContent)
+    
     if not modulesData or not modulesData.mainScript then
-        warn("[Rivals Loader] Invalid modules.json format.")
-        game:GetService("StarterGui"):SetCore("SendNotification", {
-            Title = "Rivals V5 Loader",
-            Text = "模組配置格式錯誤！",
-            Duration = 5,
-            Icon = "rbxassetid://6675147490"
-        })
+        warn("[Loader] Invalid config.")
         return
     end
 
-    -- Download and execute the main script
-    local mainScript = modulesData.mainScript
+    -- 6. [Load Main Script]
+    local mainScriptPath = modulesData.mainScript
     local scriptContent
-    local scriptSuccess
+    local scriptSuccess = false
 
-    -- Try local file first
-    if isfile and isfile(mainScript) then
-        scriptSuccess, scriptContent = pcall(readfile, mainScript)
+    -- Try local first (Development Mode)
+    if isfile and isfile(mainScriptPath) then
+        scriptSuccess, scriptContent = pcall(readfile, mainScriptPath)
     end
 
-    -- If local fails, try GitHub
+    -- Try Remote
     if not scriptSuccess then
-        local mainScriptUrl = GITHUB_RAW_URL .. mainScript
-        scriptSuccess, scriptContent = pcall(function()
-            return game:HttpGet(mainScriptUrl, true)
-        end)
+        local mainScriptUrl = getgenv().GITHUB_RAW_URL .. mainScriptPath
+        scriptSuccess, scriptContent = SecureGet(mainScriptUrl)
     end
 
     if not scriptSuccess or not scriptContent then
-        warn("[Rivals Loader] Failed to download/read main script: " .. tostring(scriptContent))
+        warn("[Loader] Failed to fetch core.")
         game:GetService("StarterGui"):SetCore("SendNotification", {
-            Title = "Rivals V5 Loader",
-            Text = "無法下載主腳本！",
-            Duration = 5,
-            Icon = "rbxassetid://6675147490"
+            Title = "Rivals Loader",
+            Text = "核心腳本下載失敗!",
+            Duration = 5
         })
         return
     end
 
-    -- Load and execute the main script
-    local loadSuccess, loadResult = pcall(loadstring(scriptContent))
-    if not loadSuccess then
-        warn("[Rivals Loader] Error executing main script: " .. tostring(loadResult))
-        game:GetService("StarterGui"):SetCore("SendNotification", {
-            Title = "Rivals V5 Loader",
-            Text = "主腳本執行錯誤！",
-            Duration = 5,
-            Icon = "rbxassetid://6675147490"
-        })
+    -- 7. [Execute Core]
+    local chunk, err = loadstring(scriptContent)
+    if not chunk then
+        warn("[Loader] Syntax Error: " .. tostring(err))
+        return
     end
+
+    task.spawn(chunk)
+    
+    -- 8. [Self Cleanup]
+    -- Remove the bootstrap function from memory if possible (Lua handles this via GC)
 end
 
-loadScript()
+-- Run Bootstrap safely
+local success, err = pcall(Bootstrap)
+if not success then
+    warn("[Loader] Fatal Error: " .. tostring(err))
+end

@@ -6,7 +6,7 @@
 local Config = getgenv().RivalsLoad("modules/utils/config.lua")
 local Common = getgenv().RivalsLoad("modules/utils/common.lua")
 
-local Players = game:GetService("Players")
+local Players = Common.GetSafeService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
@@ -66,7 +66,7 @@ function SilentAim.Update(dt)
         return
     end
     
-    local mousePos = game:GetService("UserInputService"):GetMouseLocation()
+    local mousePos = Common.GetSafeService("UserInputService"):GetMouseLocation()
     local dist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
 
     if dist > Config.Aimbot.FieldOfView then -- Using Aimbot FOV for now
@@ -108,8 +108,8 @@ function SilentAim.GetTarget()
     return nil, nil, nil
 end
 
--- Export GetTarget to global environment for hook re-use
-getgenv().Rivals_GetTarget = SilentAim.GetTarget
+-- Export GetTarget (Internal use only, no global export)
+-- getgenv().Rivals_GetTarget = SilentAim.GetTarget (REMOVED FOR SAFETY)
 
 function SilentAim.Init()
     -- Only install hook if Silent Aim is ENABLED
@@ -138,16 +138,13 @@ function SilentAim.Init()
         
         -- Type Checking (Safe)
         if typeof(self) == "Instance" and (self:IsA("Mouse") or self:IsA("PlayerMouse")) then
-             local getTarget = getgenv().Rivals_GetTarget
-             if getTarget then
-                 local target, targetPart, targetCFrame = getTarget()
-                 
-                 if target and targetPart then
-                     if k == "Hit" then
-                         return targetCFrame or targetPart.CFrame
-                     elseif k == "Target" then
-                         return targetPart
-                     end
+             local target, targetPart, targetCFrame = SilentAim.GetTarget()
+             
+             if target and targetPart then
+                 if k == "Hit" then
+                     return targetCFrame or targetPart.CFrame
+                 elseif k == "Target" then
+                     return targetPart
                  end
              end
         end
@@ -161,32 +158,26 @@ function SilentAim.Init()
         
         if Config.SilentAim.Enabled and not checkcaller() then
             if method == "Raycast" and self == workspace then
-                local getTarget = getgenv().Rivals_GetTarget
-                if getTarget then
-                    local target, targetPart = getTarget()
-                    if target and targetPart then
-                        local origin = args[1]
-                        -- Check args validity
-                        if origin and args[2] then
-                            local direction = (targetPart.Position - origin).Unit * (args[2].Magnitude)
-                            args[2] = direction
-                            return oldNamecall(self, unpack(args))
-                        end
+                local target, targetPart = SilentAim.GetTarget()
+                if target and targetPart then
+                    local origin = args[1]
+                    -- Check args validity
+                    if origin and args[2] then
+                        local direction = (targetPart.Position - origin).Unit * (args[2].Magnitude)
+                        args[2] = direction
+                        return oldNamecall(self, unpack(args))
                     end
                 end
             end
             
             if method == "FindPartOnRay" or method == "FindPartOnRayWithIgnoreList" then
-                 local getTarget = getgenv().Rivals_GetTarget
-                 if getTarget then
-                     local target, targetPart = getTarget()
-                     if target and targetPart then
-                         local ray = args[1]
-                         if ray then
-                             local newRay = Ray.new(ray.Origin, (targetPart.Position - ray.Origin).Unit * 5000)
-                             args[1] = newRay
-                             return oldNamecall(self, unpack(args))
-                         end
+                 local target, targetPart = SilentAim.GetTarget()
+                 if target and targetPart then
+                     local ray = args[1]
+                     if ray then
+                         local newRay = Ray.new(ray.Origin, (targetPart.Position - ray.Origin).Unit * 5000)
+                         args[1] = newRay
+                         return oldNamecall(self, unpack(args))
                      end
                  end
             end

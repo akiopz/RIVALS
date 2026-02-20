@@ -1,4 +1,7 @@
 ---@diagnostic disable: undefined-global
+---@diagnostic disable: inject-field
+---@diagnostic disable: undefined-field
+---@diagnostic disable: lowercase-global
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local Camera = Workspace.CurrentCamera
@@ -7,6 +10,23 @@ local UserInputService = game:GetService("UserInputService")
 local Config = getgenv().RivalsLoad("modules/utils/config.lua")
 
 local Common = {}
+
+-- [Universal] Polyfill getgenv
+if not getgenv then
+    getgenv = function() return _G end
+end
+
+-- [Universal] Device Detection
+Common.IsMobile = game:GetService("UserInputService").TouchEnabled and not game:GetService("UserInputService").MouseEnabled
+Common.IsXbox = game:GetService("GuiService"):IsTenFootInterface()
+
+Common.DebugMode = false
+
+function Common.Log(...)
+    if Common.DebugMode then
+        print("[Rivals V5]", ...)
+    end
+end
 
 -- [Bypass] Safe Service Access
 function Common.GetSafeService(serviceName)
@@ -21,6 +41,9 @@ end
 function Common.SafeCall(func, ...)
     local success, result = xpcall(func, function(err)
         -- Suppress error, do not print to console to avoid detection
+        if Common.DebugMode then
+            warn("[SafeCall Error]", err)
+        end
         return err
     end, ...)
     return success, result
@@ -28,20 +51,36 @@ end
 
 -- [Bypass] GUI Protection
 function Common.ProtectGui(gui)
+    -- Try syn.protect_gui first (Synapse X / ScriptWare)
     if syn and syn.protect_gui then
-        syn.protect_gui(gui)
+        pcall(syn.protect_gui, gui)
         gui.Parent = Common.GetSafeService("CoreGui")
-    elseif gethui then
-        gui.Parent = gethui()
-    elseif PROT_GUI then -- Other executors
-        PROT_GUI(gui)
+        return
+    end
+    
+    -- Try gethui (Universal)
+    if gethui then
+        local success, parent = pcall(gethui)
+        if success and parent then
+            gui.Parent = parent
+            return
+        end
+    end
+    
+    -- Try other protectors
+    if PROT_GUI then
+        pcall(PROT_GUI, gui)
+    end
+    
+    -- Fallback: CoreGui or PlayerGui
+    local success, core = pcall(function() return Common.GetSafeService("CoreGui") end)
+    if success and core then
+        gui.Parent = core
     else
-        -- Fallback
-        local success, core = pcall(function() return Common.GetSafeService("CoreGui") end)
-        if success and core then
-            gui.Parent = core
-        else
-            gui.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+        local players = Common.GetSafeService("Players")
+        local localPlayer = players.LocalPlayer
+        if localPlayer then
+            gui.Parent = localPlayer:WaitForChild("PlayerGui", 5)
         end
     end
 end

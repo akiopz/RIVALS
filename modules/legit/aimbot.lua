@@ -1,13 +1,14 @@
 ---@diagnostic disable: undefined-global
+---@diagnostic disable: undefined-field
 -- modules/legit/aimbot.lua
 -- Implements a basic aimbot functionality.
 
 local Config = getgenv().RivalsLoad("modules/utils/config.lua")
 local Common = getgenv().RivalsLoad("modules/utils/common.lua")
 
-local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-local vim = game:GetService("VirtualInputManager")
+local Players = Common.GetSafeService("Players")
+local UserInputService = Common.GetSafeService("UserInputService")
+local vim = Common.GetSafeService("VirtualInputManager")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
@@ -33,7 +34,19 @@ function Aimbot.Update(dt)
         end
 
         -- Check if aimbot key is pressed
-        if not UserInputService:IsKeyDown(Config.Aimbot.Key) then
+        local isAiming = false
+        if Common.IsMobile then
+            -- [Mobile] Auto-aim when touching screen (or add a dedicated button later)
+            -- For now, assume always aiming if enabled, or check for touch
+            isAiming = true -- Simple mobile logic: Always active if enabled
+        else
+            -- [PC] Check Keybind
+            if UserInputService:IsKeyDown(Config.Aimbot.Key) then
+                isAiming = true
+            end
+        end
+
+        if not isAiming then
             CurrentTarget = nil
             CurrentTargetPart = nil
             return
@@ -141,8 +154,12 @@ function Aimbot.Update(dt)
                 
                 -- Apply Max Turn Speed (Cap delta)
                 local maxDelta = 50 -- Max pixels per frame
-                if math.abs(deltaX) > maxDelta then deltaX = math.sign(deltaX) * maxDelta end
-                if math.abs(deltaY) > maxDelta then deltaY = math.sign(deltaY) * maxDelta end
+                if math.abs(deltaX) > maxDelta then 
+                    if deltaX > 0 then deltaX = maxDelta else deltaX = -maxDelta end
+                end
+                if math.abs(deltaY) > maxDelta then 
+                    if deltaY > 0 then deltaY = maxDelta else deltaY = -maxDelta end
+                end
 
                 -- Move Mouse
                 if mousemoverel then
