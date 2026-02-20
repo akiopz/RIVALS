@@ -335,7 +335,10 @@ function Common.GetBestTarget(customVisibilityCheck)
     if not Config.Aimbot.Enabled and not Config.SilentAim.Enabled and not Config.RageBot.FastLock and not isAiming then return nil, nil end
     
     local fov = Config.Aimbot.FOV
-    if Config.SilentAim.Enabled then fov = Config.SilentAim.FieldOfView end
+    if Config.SilentAim.Enabled then 
+        -- Silent Aim uses its own FOV, but we need to ensure it's not overridden by Aimbot settings
+        fov = math.max(Config.SilentAim.FieldOfView or 180, Config.Aimbot.FOV or 180) 
+    end
     if Config.RageBot.FastLock then fov = math.huge end
     
     if isAiming then

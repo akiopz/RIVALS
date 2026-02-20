@@ -76,6 +76,8 @@ function SilentAim.Update(dt)
     if Config.Aimbot.Mode == "Rage" then fov = 9999 end
 
     if dist > fov then
+        -- Silent Aim should NOT clear target if just outside FOV, let Aimbot handle clearing?
+        -- Actually, Silent Aim strictly respects FOV.
         CurrentTarget = nil
         CurrentTargetPart = nil
         CurrentTargetCFrame = nil
@@ -181,13 +183,18 @@ function SilentAim.Init()
                         -- This prevents "shooting backwards" which triggers anti-cheat
                         
                         -- [CRITICAL FIX] Prevent NaN/Inf errors BEFORE calculating angle
-                        if newDirection.Magnitude > 0.1 and direction.Magnitude > 0.1 then
-                            local angle = getAngle(direction, newDirection)
-                            if angle < math.rad(Config.SilentAim.FieldOfView or 15) then
-                                 args[2] = newDirection.Unit * direction.Magnitude
-                                 return oldNamecall(self, unpack(args))
-                            end
-                        end
+    if newDirection.Magnitude > 0.1 and direction.Magnitude > 0.1 then
+        local angle = getAngle(direction, newDirection)
+        
+        -- Override FOV check if Rage mode
+        local fovLimit = Config.SilentAim.FieldOfView or 15
+        if Config.Aimbot.Mode == "Rage" then fovLimit = 9999 end
+
+        if angle < math.rad(fovLimit) then
+                args[2] = newDirection.Unit * direction.Magnitude
+                return oldNamecall(self, unpack(args))
+        end
+    end
                     end
                 end
             end
@@ -205,7 +212,12 @@ function SilentAim.Init()
                          -- [CRITICAL FIX] Prevent NaN/Inf errors BEFORE calculating angle
                          if newDirection.Magnitude > 0.1 and direction.Magnitude > 0.1 then
                              local angle = getAngle(direction, newDirection)
-                             if angle < math.rad(Config.SilentAim.FieldOfView or 15) then
+                             
+                             -- Override FOV check if Rage mode
+                             local fovLimit = Config.SilentAim.FieldOfView or 15
+                             if Config.Aimbot.Mode == "Rage" then fovLimit = 9999 end
+
+                             if angle < math.rad(fovLimit) then
                                  local originalLength = direction.Magnitude
                                  -- If original length is small (< 20), preserve it (melee check?)
                                  -- Otherwise use 5000 or original length if greater
