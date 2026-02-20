@@ -200,28 +200,28 @@ local function Init()
         safeCall(function()
             if Config and Config.Main and Config.Main.Enabled then
                 -- Update Aimbot
-                if Modules["modules_legit_aimbot"] and Modules["modules_legit_aimbot"].Update then
-                    Modules["modules_legit_aimbot"].Update(dt)
+                if Modules["legit_aimbot"] and Modules["legit_aimbot"].Update then
+                    Modules["legit_aimbot"].Update(dt)
                 end
                 -- Update TriggerBot
-                if Modules["modules_legit_triggerbot"] and Modules["modules_legit_triggerbot"].Update then
-                    Modules["modules_legit_triggerbot"].Update(dt)
+                if Modules["legit_triggerbot"] and Modules["legit_triggerbot"].Update then
+                    Modules["legit_triggerbot"].Update(dt)
                 end
                 -- Update SilentAim
-                if Modules["modules_legit_silent_aim"] and Modules["modules_legit_silent_aim"].Update then
-                    Modules["modules_legit_silent_aim"].Update(dt)
+                if Modules["legit_silent_aim"] and Modules["legit_silent_aim"].Update then
+                    Modules["legit_silent_aim"].Update(dt)
                 end
                 -- Update World visuals (e.g., crosshair)
-                if Modules["modules_visuals_world"] and Modules["modules_visuals_world"].Update then
-                    Modules["modules_visuals_world"].Update(dt)
+                if Modules["visuals_world"] and Modules["visuals_world"].Update then
+                    Modules["visuals_world"].Update(dt)
                 end
                 -- Update Hitbox Expander
-                if Modules["modules_legit_hitbox_expander"] and Modules["modules_legit_hitbox_expander"].Update then
-                    Modules["modules_legit_hitbox_expander"].Update(dt)
+                if Modules["legit_hitbox_expander"] and Modules["legit_hitbox_expander"].Update then
+                    Modules["legit_hitbox_expander"].Update(dt)
                 end
                  -- Update Anti-Aim
-                if Modules["modules_legit_anti_aim"] and Modules["modules_legit_anti_aim"].Update then
-                    Modules["modules_legit_anti_aim"].Update(dt)
+                if Modules["legit_anti_aim"] and Modules["legit_anti_aim"].Update then
+                    Modules["legit_anti_aim"].Update(dt)
                 end
             end
         end)
@@ -238,12 +238,12 @@ local function Init()
         safeCall(function()
             if Config and Config.Main and Config.Main.Enabled then
                 -- Update ESP
-                if Modules["modules_visuals_esp"] and Modules["modules_visuals_esp"].Update then
-                     Modules["modules_visuals_esp"].Update() -- Use internal loop
+                if Modules["visuals_esp"] and Modules["visuals_esp"].Update then
+                     Modules["visuals_esp"].Update() -- Use internal loop
                 end
                 -- Update GUI
-                if Modules["modules_ui_gui"] and Modules["modules_ui_gui"].Update then
-                    Modules["modules_ui_gui"].Update(dt)
+                if Modules["ui_gui"] and Modules["ui_gui"].Update then
+                    Modules["ui_gui"].Update(dt)
                 end
             end
         end)

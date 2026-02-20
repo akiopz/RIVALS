@@ -1,4 +1,5 @@
 ---@diagnostic disable: undefined-global
+---@diagnostic disable: undefined-field
 -- modules/visuals/esp.lua
 -- Implements ESP (Extra Sensory Perception) visuals using BillboardGui and Highlight (Safer than Drawing API).
 

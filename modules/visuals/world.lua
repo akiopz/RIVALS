@@ -1,4 +1,5 @@
 ---@diagnostic disable: undefined-global
+---@diagnostic disable: undefined-field
 -- modules/visuals/world.lua
 -- Handles world-related visuals like crosshairs using ScreenGui (Safer than Drawing API).
 
