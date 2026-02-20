@@ -35,6 +35,9 @@ end
 -- Global table to store module instances
 local Modules = {}
 
+-- Global cache for loaded modules to prevent redundant requests
+if not getgenv().Rivals_ModuleCache then getgenv().Rivals_ModuleCache = {} end
+
 -- Global table to store active connections for cleanup
 if not getgenv().Rivals_Connections then getgenv().Rivals_Connections = {} end
 
@@ -43,6 +46,11 @@ if not getgenv().Rivals_Cleanup_Functions then getgenv().Rivals_Cleanup_Function
 
 -- Function to load modules (placeholder for now, will be replaced by HTTP loading)
 local function RivalsLoad(path)
+    -- [Cache Check] Return cached module if already loaded
+    if getgenv().Rivals_ModuleCache[path] then
+        return getgenv().Rivals_ModuleCache[path]
+    end
+
     local content
     local success
     
@@ -54,10 +62,12 @@ local function RivalsLoad(path)
         if success then
             -- print("[RivalsLoad] Loaded LOCAL file: " .. path)
         else
-            warn("[RivalsLoad] Failed to read LOCAL file: " .. path)
+            -- Suppress warning unless debug mode
+            -- warn("[RivalsLoad] Failed to read LOCAL file: " .. path)
         end
     else
-        warn("[RivalsLoad] File not found locally: " .. path)
+        -- Suppress warning unless debug mode
+        -- warn("[RivalsLoad] File not found locally: " .. path)
     end
 
     -- If local file not found or failed, try GitHub
@@ -90,6 +100,10 @@ local function RivalsLoad(path)
         warn("[RivalsLoad] Error executing module " .. path .. ": " .. tostring(module))
         return nil
     end
+    
+    -- [Cache Save] Store loaded module in cache
+    getgenv().Rivals_ModuleCache[path] = module
+    
     return module
 end
 
