@@ -1,0 +1,4 @@
+-- Copy and paste this into your Roblox exploit/injector
+-- Make sure to replace YOUR_GITHUB_RAW_URL with the raw URL to your loader.lua on GitHub.
+
+loadstring(game:HttpGet("YOUR_GITHUB_RAW_URL/loader.lua"))()
