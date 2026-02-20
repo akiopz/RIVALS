@@ -182,7 +182,10 @@ function ESP.Update(player)
     local root = player.Character:FindFirstChild("HumanoidRootPart")
     if not root then return end
     
-    local dist = (root.Position - workspace.CurrentCamera.CFrame.Position).Magnitude
+    local camera = workspace.CurrentCamera
+    if not camera then return end
+    
+    local dist = (root.Position - camera.CFrame.Position).Magnitude
     
     -- Dynamic Throttling based on distance
     -- Close players update every frame (or close to it)
