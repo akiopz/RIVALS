@@ -6,10 +6,29 @@
 -- Main entry point for the modular exploit.
 -- This script loads all other modules and manages their lifecycle.
 
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
+print("----------------------------------------------------------------")
+print("[Rivals V5] STARTING LOCAL EXECUTION - VERSION: ScreenGui Rewrite")
+print("----------------------------------------------------------------")
+
+local function GetSafeService(service_name)
+    local service = game:GetService(service_name)
+    if cloneref then
+        return cloneref(service)
+    end
+    return service
+end
+
+local Players = GetSafeService("Players")
+local RunService = GetSafeService("RunService")
+local UserInputService = GetSafeService("UserInputService")
+local StarterGui = GetSafeService("StarterGui")
 local LocalPlayer = Players.LocalPlayer
+
+-- [Bypass] Anti-Tamper / Environment Cleanup
+if getgenv().RivalsLoad then
+    -- Clean up previous environment if exists to prevent detection
+    getgenv().RivalsLoad = nil
+end
 
 -- Global table to store module instances
 local Modules = {}
@@ -24,15 +43,25 @@ if not getgenv().Rivals_Cleanup_Functions then getgenv().Rivals_Cleanup_Function
 local function RivalsLoad(path)
     local content
     local success
+    
+    print("[RivalsLoad] Attempting to load: " .. path)
 
     -- Try loading from local file first
     if isfile and isfile(path) then
         success, content = pcall(readfile, path)
+        if success then
+            print("[RivalsLoad] Loaded LOCAL file: " .. path)
+        else
+            warn("[RivalsLoad] Failed to read LOCAL file: " .. path)
+        end
+    else
+        warn("[RivalsLoad] File not found locally: " .. path)
     end
 
     -- If local file not found or failed, try GitHub
     if not success or not content then
         if getgenv().GITHUB_RAW_URL then
+            print("[RivalsLoad] Attempting GitHub load for: " .. path)
             local moduleUrl = getgenv().GITHUB_RAW_URL .. path
             success, content = pcall(function()
                 return game:HttpGet(moduleUrl, true)
@@ -48,7 +77,13 @@ local function RivalsLoad(path)
         return nil
     end
 
-    local loadSuccess, module = pcall(loadstring(content))
+    local chunk, syntaxErr = loadstring(content)
+    if not chunk then
+        warn("[RivalsLoad] Syntax error in " .. path .. ": " .. tostring(syntaxErr))
+        return nil
+    end
+
+    local loadSuccess, module = pcall(chunk)
     if not loadSuccess then
         warn("[RivalsLoad] Error executing module " .. path .. ": " .. tostring(module))
         return nil
@@ -92,7 +127,10 @@ local function Init()
     local modulePaths = {
         "modules/utils/common.lua",
         "modules/legit/aimbot.lua",
+        "modules/legit/triggerbot.lua", -- Added TriggerBot
         "modules/legit/silent_aim.lua",
+        "modules/legit/hitbox_expander.lua", -- Added HitboxExpander
+        "modules/legit/anti_aim.lua", -- Added AntiAim
         "modules/visuals/esp.lua",
         "modules/visuals/world.lua",
         "modules/ui/gui.lua",
@@ -115,11 +153,18 @@ local function Init()
 
     -- Main loops
     RunService.Heartbeat:Connect(function(dt)
-        pcall(function()
+        local Common = Modules.utils_common
+        local safeCall = Common and Common.SafeCall or pcall
+
+        safeCall(function()
             if Config and Config.Main and Config.Main.Enabled then
                 -- Update Aimbot
                 if Modules.legit_aimbot and Modules.legit_aimbot.Update then
                     Modules.legit_aimbot.Update(dt)
+                end
+                -- Update TriggerBot
+                if Modules.legit_triggerbot and Modules.legit_triggerbot.Update then
+                    Modules.legit_triggerbot.Update(dt)
                 end
                 -- Update SilentAim
                 if Modules.legit_silent_aim and Modules.legit_silent_aim.Update then
@@ -134,7 +179,10 @@ local function Init()
     end)
 
     RunService.RenderStepped:Connect(function(dt)
-        pcall(function()
+        local Common = Modules.utils_common
+        local safeCall = Common and Common.SafeCall or pcall
+        
+        safeCall(function()
             if Config and Config.Main and Config.Main.Enabled then
                 -- Update ESP
                 if Modules.visuals_esp and Modules.visuals_esp.Update then
@@ -154,11 +202,11 @@ local function Init()
 
     print("[Rivals V5] Script Loaded Successfully!")
     pcall(function()
-        game:GetService("StarterGui"):SetCore("SendNotification", {
+        StarterGui:SetCore("SendNotification", {
             Title = "Rivals V5",
-            Text = "腳本加載成功！",
+            Text = "已安全注入 (Safe Mode)",
             Duration = 3,
-            Icon = "rbxassetid://6675147490" -- User's Shark Icon
+            Icon = "rbxassetid://6675147490"
         })
     end)
 end

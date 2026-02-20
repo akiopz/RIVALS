@@ -27,6 +27,9 @@ function SilentAim.Update()
     end
 
     local function targetCheck(player, part)
+        -- [Bypass] Trap Check
+        if Common.IsTrap(player) then return false end
+
         -- If Visible Check is disabled, everything is valid
         if not Config.SilentAim.VisibleCheck then return true end
         
@@ -48,6 +51,16 @@ function SilentAim.Update()
 
     -- FOV Check (Silent Aim usually doesn't have FOV, but for consistency with Aimbot)
     local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+    
+    -- [Bypass] Directional Sanity Check
+    -- Ensure target is actually on screen to prevent "shooting backward"
+    if not onScreen then
+        CurrentTarget = nil
+        CurrentTargetPart = nil
+        CurrentTargetCFrame = nil
+        return
+    end
+    
     local mousePos = game:GetService("UserInputService"):GetMouseLocation()
     local dist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
 
@@ -69,7 +82,7 @@ function SilentAim.GetTarget()
     -- Simply return cached target
     -- Apply RNG here
     if CurrentTarget and CurrentTargetPart then
-        if math.random(0, 100) > Config.SilentAim.HitChance then return nil, nil, nil end
+        if math.random() * 100 > Config.SilentAim.HitChance then return nil, nil, nil end
         
         -- Headshot Chance override
         local finalPart = CurrentTargetPart
@@ -175,8 +188,15 @@ function SilentAim.Init()
     end)
     
     if hookmetamethod then
-        oldIndex = hookmetamethod(game, "__index", newIndex)
-        oldNamecall = hookmetamethod(game, "__namecall", newNamecall)
+        local success, err = pcall(function()
+            oldIndex = hookmetamethod(game, "__index", newIndex)
+            oldNamecall = hookmetamethod(game, "__namecall", newNamecall)
+        end)
+        if not success then
+             warn("SilentAim Hook Failed: " .. tostring(err))
+             -- Fallback or disable
+             return
+        end
     else
         -- Fallback for older executors
         oldIndex = mt.__index

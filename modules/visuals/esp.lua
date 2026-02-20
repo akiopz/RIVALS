@@ -1,201 +1,302 @@
 ---@diagnostic disable: undefined-global
 -- modules/visuals/esp.lua
--- Implements ESP (Extra Sensory Perception) visuals for players.
+-- Implements ESP (Extra Sensory Perception) visuals using BillboardGui and Highlight (Safer than Drawing API).
 
 local Config = getgenv().RivalsLoad("modules/utils/config.lua")
+if not Config then 
+    warn("ESP Module: Failed to load Config") 
+    return {} 
+end
 local Common = getgenv().RivalsLoad("modules/utils/common.lua")
 
-local Players = game:GetService("Players")
+local Players = Common.GetSafeService("Players")
 local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
-
-local Drawing = Drawing or getgenv().Drawing -- Ensure Drawing library is available
+local CoreGui = Common.GetSafeService("CoreGui")
+local RunService = Common.GetSafeService("RunService") -- Added RunService
 
 local ESP = {}
 
--- Store active drawings to clean up
-local PlayerDrawings = {} -- {player = {box = Drawing.new("Square"), name = Drawing.new("Text"), ...}}
+-- Store active visuals
+local PlayerVisuals = {} -- {player = {highlight = Instance, billboard = Instance}}
+local lastUpdate = 0
+local updateInterval = 0.1 -- Update every 100ms (10 FPS) instead of every frame (60 FPS)
 
--- Function to get player color based on team and config
+-- Helper to get safe parent
+local function getSafeParent()
+    if gethui then return gethui() end
+    local success, coreGui = pcall(function() return Common.GetSafeService("CoreGui") end)
+    if success and coreGui then
+        return coreGui
+    end
+    return LocalPlayer:WaitForChild("PlayerGui")
+end
+
+-- Helper to create Highlight
+local function CreateHighlight(player)
+    if not player.Character then return nil end
+    
+    local highlight = Instance.new("Highlight")
+    highlight.Name = tostring(math.random(100000, 999999)) -- [Bypass] Name Spoofing
+    highlight.FillTransparency = 0.5
+    highlight.OutlineTransparency = 0
+    highlight.FillColor = Config.ESP.Color
+    highlight.OutlineColor = Color3.new(1, 1, 1)
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    highlight.Adornee = player.Character
+    
+    local success, parent = pcall(getSafeParent)
+    if success and parent then
+        highlight.Parent = parent
+    else
+        highlight.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    end
+    
+    return highlight
+end
+
+-- Helper to create BillboardGui
+local function CreateBillboard(player)
+    if not player.Character or not player.Character:FindFirstChild("Head") then return nil end
+    
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = tostring(math.random(100000, 999999)) -- [Bypass] Name Spoofing
+    billboard.Adornee = player.Character:FindFirstChild("Head")
+    billboard.Size = UDim2.new(0, 200, 0, 50)
+    billboard.StudsOffset = Vector3.new(0, 2, 0)
+    billboard.AlwaysOnTop = true
+    
+    local success, parent = pcall(getSafeParent)
+    if success and parent then
+        billboard.Parent = parent
+    else
+        billboard.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    end
+    
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Name = "NameLabel"
+    nameLabel.Size = UDim2.new(1, 0, 0, 20)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Text = player.Name
+    nameLabel.TextColor3 = Color3.new(1, 1, 1)
+    nameLabel.TextStrokeTransparency = 0
+    nameLabel.TextSize = 14
+    nameLabel.Font = Enum.Font.GothamBold
+    nameLabel.Parent = billboard
+    
+    local distanceLabel = Instance.new("TextLabel")
+    distanceLabel.Name = "DistanceLabel"
+    distanceLabel.Size = UDim2.new(1, 0, 0, 15)
+    distanceLabel.Position = UDim2.new(0, 0, 0, 20)
+    distanceLabel.BackgroundTransparency = 1
+    distanceLabel.Text = "0m"
+    distanceLabel.TextColor3 = Color3.new(1, 1, 1)
+    distanceLabel.TextStrokeTransparency = 0
+    distanceLabel.TextSize = 12
+    distanceLabel.Font = Enum.Font.Gotham
+    distanceLabel.Parent = billboard
+
+    local healthBarBg = Instance.new("Frame")
+    healthBarBg.Name = "HealthBarBg"
+    healthBarBg.Size = UDim2.new(0, 4, 0, 40)
+    healthBarBg.Position = UDim2.new(0, -10, 0, 0)
+    healthBarBg.BackgroundColor3 = Color3.new(0, 0, 0)
+    healthBarBg.BorderSizePixel = 0
+    healthBarBg.Parent = billboard
+    
+    local healthBar = Instance.new("Frame")
+    healthBar.Name = "HealthBar"
+    healthBar.Size = UDim2.new(1, -2, 1, -2)
+    healthBar.Position = UDim2.new(0, 1, 0, 1)
+    healthBar.BackgroundColor3 = Color3.new(0, 1, 0)
+    healthBar.BorderSizePixel = 0
+    healthBar.Parent = healthBarBg
+
+    return billboard
+end
+
 local function getPlayerColor(player)
     if Config.ESP.Rainbow then
-        return Color3.fromHSV(tick() % 10 / 10, 1, 1)
+        return Color3.fromHSV(tick() % 5 / 5, 1, 1)
     elseif Config.ESP.TeamCheck and player.Team == LocalPlayer.Team then
-        return Color3.fromRGB(0, 255, 0) -- Green for teammates
+        return Color3.fromRGB(0, 255, 0)
     else
         return Config.ESP.Color
     end
 end
 
 function ESP.Update(player)
-    if not Config.ESP.Enabled or not player or player == LocalPlayer or not player.Character or not player.Character:FindFirstChild("Humanoid") or player.Character.Humanoid.Health <= 0 then
-        -- Clean up drawings if player is invalid or ESP is disabled
-        if PlayerDrawings[player] then
-            for _, drawObj in pairs(PlayerDrawings[player]) do
-                pcall(function() drawObj:Remove() end)
-            end
-            PlayerDrawings[player] = nil
+    -- Throttling: Check if enough time has passed since last global update
+    -- Note: Since this is called per player in a loop (usually), we should throttle the loop caller or handle it here.
+    -- If this function is called inside a loop over all players, we can just return early if time not met.
+    -- However, the main loop in rivals_v5_modular.lua calls this per frame for all players.
+    -- To optimize properly, we should only process a subset of players per frame or skip frames entirely.
+    
+    if tick() - lastUpdate < updateInterval then
+        return
+    end
+    
+    -- We need to update lastUpdate only once per frame cycle, not per player call.
+    -- But since we don't control the loop here easily without static variable...
+    -- Let's assume the caller handles the loop.
+    -- If the caller calls ESP.Update(player), it expects an update.
+    -- But we can optimize by checking distance and updating less frequently for far players.
+    
+    if not Config.ESP.Enabled or not player or player == LocalPlayer then
+        -- Cleanup if disabled
+        if PlayerVisuals[player] then
+            if PlayerVisuals[player].highlight then pcall(function() PlayerVisuals[player].highlight:Destroy() end) end
+            if PlayerVisuals[player].billboard then pcall(function() PlayerVisuals[player].billboard:Destroy() end) end
+            PlayerVisuals[player] = nil
         end
         return
     end
 
-    local humanoidRootPart = player.Character:FindFirstChild("HumanoidRootPart")
-    if not humanoidRootPart then return end
-
-    local head = player.Character:FindFirstChild("Head")
-    if not head then return end
-
-    local screenPosHead, onScreenHead = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0)) -- Slightly above head
-    local screenPosRoot, onScreenRoot = Camera:WorldToViewportPoint(humanoidRootPart.Position - Vector3.new(0, 0.5, 0)) -- Slightly below root
-
-    if not onScreenHead and not onScreenRoot then
-        -- Clean up drawings if player is off screen
-        if PlayerDrawings[player] then
-            for _, drawObj in pairs(PlayerDrawings[player]) do
-                pcall(function() drawObj:Remove() end)
-            end
-            PlayerDrawings[player] = nil
+    if not player.Character or not player.Character:FindFirstChild("Humanoid") or not player.Character:FindFirstChild("HumanoidRootPart") or player.Character.Humanoid.Health <= 0 then
+        -- Hide but don't destroy yet if just respawning, or destroy? Better destroy to be safe.
+        if PlayerVisuals[player] then
+            if PlayerVisuals[player].highlight then PlayerVisuals[player].highlight.Enabled = false end
+            if PlayerVisuals[player].billboard then PlayerVisuals[player].billboard.Enabled = false end
         end
         return
     end
 
+    -- [Bypass] Trap Check
+    if Common.IsTrap(player) then
+        if PlayerVisuals[player] then
+            if PlayerVisuals[player].highlight then PlayerVisuals[player].highlight.Enabled = false end
+            if PlayerVisuals[player].billboard then PlayerVisuals[player].billboard.Enabled = false end
+        end
+        return
+    end
+
+    -- Init visuals if missing
+    if not PlayerVisuals[player] then
+        PlayerVisuals[player] = {}
+    end
+
+    local visuals = PlayerVisuals[player]
     local color = getPlayerColor(player)
-
-    -- Initialize drawing objects if they don't exist
-    if not PlayerDrawings[player] then
-        PlayerDrawings[player] = {
-            box = Drawing.new("Square"),
-            name = Drawing.new("Text"),
-            healthBar = Drawing.new("Square"),
-            tracer = Drawing.new("Line"),
-            skeleton = {} -- Table for skeleton lines
-        }
-        -- Register cleanup for this player's drawings
-        table.insert(getgenv().Rivals_Cleanup_Functions, function()
-            if PlayerDrawings[player] then
-                for _, drawObj in pairs(PlayerDrawings[player]) do
-                    if type(drawObj) == "table" then -- Skeleton lines
-                        for _, line in pairs(drawObj) do pcall(function() line:Remove() end) end
-                    else
-                        pcall(function() drawObj:Remove() end)
-                    end
-                end
-                PlayerDrawings[player] = nil
-            end
-        end)
+    
+    -- [Bypass] Render Distance Check
+    local root = player.Character:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    
+    local dist = (root.Position - workspace.CurrentCamera.CFrame.Position).Magnitude
+    
+    -- Dynamic Throttling based on distance
+    -- Close players update every frame (or close to it)
+    -- Far players update less frequently
+    -- This requires persistent state per player, which we have in PlayerVisuals
+    
+    if not PlayerVisuals[player] then PlayerVisuals[player] = {lastUpdate = 0} end
+    local pVis = PlayerVisuals[player]
+    
+    local playerUpdateInterval = 0
+    if dist < 100 then
+        playerUpdateInterval = 0 -- Every frame
+    elseif dist < 300 then
+        playerUpdateInterval = 0.05 -- 20 FPS
+    else
+        playerUpdateInterval = 0.1 -- 10 FPS
+    end
+    
+    if tick() - (pVis.lastUpdate or 0) < playerUpdateInterval then
+        return
+    end
+    pVis.lastUpdate = tick()
+    
+    if dist > 3000 then -- Don't render if > 3000 studs
+        if visuals.highlight then visuals.highlight.Enabled = false end
+        if visuals.billboard then visuals.billboard.Enabled = false end
+        return
     end
 
-    local drawings = PlayerDrawings[player]
+    -- [Bypass] Off-Screen Check (Optional: Disable if behind camera)
+    local _, onScreen = workspace.CurrentCamera:WorldToViewportPoint(root.Position)
+    if not onScreen then
+         -- We might want to keep chams (highlight) visible through walls, so only hide billboard?
+         -- Or hide both if performance/safety is concern.
+         -- For now, let's keep Highlight visible (wallhack) but maybe hide text to reduce clutter?
+         -- Actually, hiding completely when off-screen is safer but defeats the purpose of ESP (seeing through walls/behind).
+         -- The "Bypass" part is mainly about not spamming updates.
+    end
 
-    -- Calculate box size and position
-    local height = math.abs(screenPosHead.Y - screenPosRoot.Y)
-    local width = height / 2
-    local x = screenPosRoot.X - width / 2
-    local y = screenPosHead.Y
-
-    -- Box ESP
+    -- HIGHLIGHT (Box/Chams)
     if Config.ESP.Boxes then
-        drawings.box.Visible = true
-        drawings.box.Color = color
-        drawings.box.Thickness = 1
-        drawings.box.Filled = false
-        drawings.box.Position = Vector2.new(x, y)
-        drawings.box.Size = Vector2.new(width, height)
-    else
-        drawings.box.Visible = false
-    end
-
-    -- Name ESP
-    if Config.ESP.Names then
-        drawings.name.Visible = true
-        drawings.name.Color = color
-        drawings.name.Text = player.Name
-        drawings.name.Size = 12
-        drawings.name.Center = true
-        drawings.name.Position = Vector2.new(screenPosHead.X, screenPosHead.Y - 15)
-    else
-        drawings.name.Visible = false
-    end
-
-    -- Health Bar ESP
-    if Config.ESP.HealthBars then
-        local humanoid = player.Character:FindFirstChild("Humanoid")
-        if humanoid then
-            local healthRatio = humanoid.Health / humanoid.MaxHealth
-            local healthBarHeight = height * healthRatio
-            local healthBarY = y + (height - healthBarHeight)
-
-            drawings.healthBar.Visible = true
-            drawings.healthBar.Color = Color3.fromRGB(255 * (1 - healthRatio), 255 * healthRatio, 0) -- Green to Red
-            drawings.healthBar.Thickness = 1
-            drawings.healthBar.Filled = true
-            drawings.healthBar.Position = Vector2.new(x - 5, y) -- Left of the box
-            drawings.healthBar.Size = Vector2.new(3, height)
-        else
-            drawings.healthBar.Visible = false
+        if not visuals.highlight then
+            visuals.highlight = CreateHighlight(player)
+            -- Register cleanup
+            table.insert(getgenv().Rivals_Cleanup_Functions, function()
+                if visuals.highlight then pcall(function() visuals.highlight:Destroy() end) end
+            end)
+        end
+        if visuals.highlight then
+            visuals.highlight.Enabled = true
+            visuals.highlight.FillColor = color
+            visuals.highlight.OutlineColor = Color3.new(1, 1, 1)
+            visuals.highlight.Adornee = player.Character
         end
     else
-        drawings.healthBar.Visible = false
+        if visuals.highlight then visuals.highlight.Enabled = false end
     end
 
-    -- Tracer ESP
-    if Config.ESP.Tracers then
-        drawings.tracer.Visible = true
-        drawings.tracer.Color = color
-        drawings.tracer.Thickness = 1
-        drawings.tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y) -- Bottom center of screen
-        drawings.tracer.To = Vector2.new(screenPosRoot.X, screenPosRoot.Y)
-    else
-        drawings.tracer.Visible = false
-    end
+    -- NAMES / HEALTH (Billboard)
+    if Config.ESP.Names or Config.ESP.Health then
+        if not visuals.billboard then
+            visuals.billboard = CreateBillboard(player)
+            -- Register cleanup
+            table.insert(getgenv().Rivals_Cleanup_Functions, function()
+                if visuals.billboard then pcall(function() visuals.billboard:Destroy() end) end
+            end)
+        end
 
-    -- Skeleton ESP
-    if Config.ESP.Skeletons then
-        local skeletonParts = {
-            {"Head", "Neck"}, {"Neck", "UpperTorso"}, {"UpperTorso", "LowerTorso"},
-            {"UpperTorso", "RightShoulder"}, {"RightShoulder", "RightUpperArm"}, {"RightUpperArm", "RightLowerArm"}, {"RightLowerArm", "RightHand"},
-            {"UpperTorso", "LeftShoulder"}, {"LeftShoulder", "LeftUpperArm"}, {"LeftUpperArm", "LeftLowerArm"}, {"LeftLowerArm", "LeftHand"},
-            {"LowerTorso", "RightHip"}, {"RightHip", "RightUpperLeg"}, {"RightUpperLeg", "RightLowerLeg"}, {"RightLowerLeg", "RightFoot"},
-            {"LowerTorso", "LeftHip"}, {"LeftHip", "LeftUpperLeg"}, {"LeftUpperLeg", "LeftLowerLeg"}, {"LeftLowerLeg", "LeftFoot"},
-        }
-
-        for i, connection in ipairs(skeletonParts) do
-            local part1 = player.Character:FindFirstChild(connection[1])
-            local part2 = player.Character:FindFirstChild(connection[2])
-
-            if part1 and part2 then
-                local screenPos1, onScreen1 = Camera:WorldToViewportPoint(part1.Position)
-                local screenPos2, onScreen2 = Camera:WorldToViewportPoint(part2.Position)
-
-                if onScreen1 and onScreen2 then
-                    if not drawings.skeleton[i] then
-                        drawings.skeleton[i] = Drawing.new("Line")
-                        table.insert(getgenv().Rivals_Cleanup_Functions, function()
-                            if drawings.skeleton[i] then pcall(function() drawings.skeleton[i]:Remove() end) end
-                        end)
-                    end
-                    drawings.skeleton[i].Visible = true
-                    drawings.skeleton[i].Color = color
-                    drawings.skeleton[i].Thickness = 1
-                    drawings.skeleton[i].From = Vector2.new(screenPos1.X, screenPos1.Y)
-                    drawings.skeleton[i].To = Vector2.new(screenPos2.X, screenPos2.Y)
-                else
-                    if drawings.skeleton[i] then drawings.skeleton[i].Visible = false end
+        if visuals.billboard then
+            visuals.billboard.Enabled = true
+            visuals.billboard.Adornee = player.Character:FindFirstChild("Head")
+            
+            local nameLabel = visuals.billboard:FindFirstChild("NameLabel")
+            local distanceLabel = visuals.billboard:FindFirstChild("DistanceLabel")
+            local healthBarBg = visuals.billboard:FindFirstChild("HealthBarBg")
+            
+            if Config.ESP.Names then
+                nameLabel.Visible = true
+                nameLabel.Text = player.Name
+                nameLabel.TextColor3 = color
+                
+                local dist = (player.Character.HumanoidRootPart.Position - workspace.CurrentCamera.CFrame.Position).Magnitude
+                distanceLabel.Visible = true
+                distanceLabel.Text = math.floor(dist) .. "m"
+            else
+                nameLabel.Visible = false
+                distanceLabel.Visible = false
+            end
+            
+            if Config.ESP.Health then
+                healthBarBg.Visible = true
+                local humanoid = player.Character:FindFirstChild("Humanoid")
+                local healthBar = healthBarBg:FindFirstChild("HealthBar")
+                if humanoid and healthBar then
+                    local ratio = humanoid.Health / humanoid.MaxHealth
+                    healthBar.Size = UDim2.new(1, -2, ratio, -2)
+                    healthBar.Position = UDim2.new(0, 1, 1 - ratio, 1) -- Fill from bottom
+                    healthBar.BackgroundColor3 = Color3.fromRGB(255 * (1 - ratio), 255 * ratio, 0)
                 end
             else
-                if drawings.skeleton[i] then drawings.skeleton[i].Visible = false end
+                healthBarBg.Visible = false
             end
         end
     else
-        -- Hide all skeleton lines
-        for _, line in pairs(drawings.skeleton) do
-            pcall(function() line.Visible = false end)
-        end
+        if visuals.billboard then visuals.billboard.Enabled = false end
     end
 end
 
 function ESP.Init()
-    -- Any initialization logic for ESP if needed
+    -- Clear old visuals
+    for _, v in pairs(PlayerVisuals) do
+        if v.highlight then v.highlight:Destroy() end
+        if v.billboard then v.billboard:Destroy() end
+    end
+    PlayerVisuals = {}
 end
 
 return ESP
