@@ -207,8 +207,8 @@ local Config
 
         safeCall(function()
             -- Debug Print (Throttle)
-            if math.random() < 0.01 then
-                -- print("[Rivals V5] Main Loop Running...") 
+            if Common.DebugMode and math.random() < 0.01 then
+                print("[Rivals V5] Main Loop Running... (Heartbeat)") 
             end
 
             -- Update Aimbot

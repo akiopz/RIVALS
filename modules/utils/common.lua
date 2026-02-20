@@ -87,6 +87,11 @@ end
 
 Common.CurrentTarget = nil
 Common.CurrentPart = nil
+Common.LastTargetUpdateTime = 0
+Common.CachedTarget = nil
+Common.CachedPart = nil
+Common.ValidEnemies = {}
+Common.LastEnemyUpdateTime = 0
 
 -- [Bypass] Bezier Curve Utilities for Aimbot
 function Common.BezierQuad(t, p0, p1, p2)
@@ -215,7 +220,14 @@ function Common.GetNearestPart(player)
         local partsToCheck = allParts
 
         -- If player is very far, just use Head or Torso to save performance
-        if (root.Position - Camera.CFrame.Position).Magnitude > 300 then
+        local distToRoot = (root.Position - Camera.CFrame.Position).Magnitude
+        
+        -- [Optimization] Ultra Long Distance: Just return Head
+        if distToRoot > 1000 then
+             return player.Character:FindFirstChild("Head") or root
+        end
+
+        if distToRoot > 300 then
              partsToCheck = priorityParts
         end
         
@@ -258,9 +270,44 @@ function Common.GetResolvedPart(player, part)
 end
 
 function Common.GetBestTarget(customVisibilityCheck)
+    -- [Optimization] Return cached result if called multiple times in same frame
+    if Common.LastTargetUpdateTime == tick() and not customVisibilityCheck then
+        return Common.CachedTarget, Common.CachedPart
+    end
+
     if not Camera or not Camera.Parent then Camera = Workspace.CurrentCamera end
     local mousePos = UserInputService:GetMouseLocation()
     
+    -- [Optimization] Update Valid Enemies List (Every 100ms)
+    if tick() - Common.LastEnemyUpdateTime > 0.1 then
+        Common.ValidEnemies = {}
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character then
+                local root = player.Character:FindFirstChild("HumanoidRootPart")
+                local hum = player.Character:FindFirstChild("Humanoid")
+                if root and hum and hum.Health > 0 then
+                    local isEnemy = true
+                    if Config.Aimbot.TeamCheck and player.Team == LocalPlayer.Team and player.Team ~= nil then
+                        isEnemy = false
+                    end
+                    
+                    if isEnemy and Config.Aimbot.KnockedCheck and Common.IsKnocked(player) then
+                        isEnemy = false
+                    end
+                    
+                    if isEnemy and Common.IsTrap(player) then
+                        isEnemy = false
+                    end
+                    
+                    if isEnemy then
+                        table.insert(Common.ValidEnemies, player)
+                    end
+                end
+            end
+        end
+        Common.LastEnemyUpdateTime = tick()
+    end
+
     -- Check if Aim Key is held to enable "Anywhere" locking
     local isAiming = false
     if Config.Aimbot.Key then
@@ -325,65 +372,61 @@ function Common.GetBestTarget(customVisibilityCheck)
     local bestPart = nil
     local shortestDist = math.huge
 
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character then
-            -- Distance Check Optimization: Skip players > 5000 studs (unless Rage FastLock)
-            -- Use RootPart for fast distance check
+    -- [Optimization] Iterate Valid Enemies only
+    local targets = Common.ValidEnemies
+    if #targets == 0 then return nil, nil end
+
+    for _, player in ipairs(targets) do
+        if player and player.Character then
+            -- Check if still valid (e.g. died since last update)
             local root = player.Character:FindFirstChild("HumanoidRootPart")
             if root then
-                 -- [Bypass] Trap Check
-                 if Common.IsTrap(player) then
-                     -- Skip this player
-                 else
-                     local dist = (root.Position - Camera.CFrame.Position).Magnitude
-                     if dist < 5000 or Config.RageBot.FastLock then
-                        local validTarget = true
-                        
-                        if Config.Aimbot.TeamCheck and player.Team == LocalPlayer.Team and player.Team ~= nil then
-                            validTarget = false
+                 local dist = (root.Position - Camera.CFrame.Position).Magnitude
+                 if dist < 5000 or Config.RageBot.FastLock then
+                    local validTarget = true
+                    
+                    -- Team/Knocked/Trap checks are already done in update loop!
+                    -- But double check Knocked if needed as it changes fast
+                    if Config.Aimbot.KnockedCheck and Common.IsKnocked(player) then
+                        validTarget = false
+                    end
+                    
+                    if validTarget then
+                        local part = nil
+                        if Config.Aimbot.NearestPart then
+                             part = Common.GetNearestPart(player)
+                        else
+                             part = player.Character:FindFirstChild(Config.Aimbot.TargetPart)
+                             if not part and Config.Aimbot.TargetPart == "UpperTorso" then part = player.Character:FindFirstChild("Torso") end -- R6 Fallback
+                             if not part then part = player.Character:FindFirstChild("Head") end -- Ultimate Fallback
                         end
                         
-                        if validTarget and Config.Aimbot.KnockedCheck and Common.IsKnocked(player) then
-                            validTarget = false
-                        end
-                        
-                        if validTarget then
-                            local part = nil
-                            if Config.Aimbot.NearestPart then
-                                 part = Common.GetNearestPart(player)
-                            else
-                                 part = player.Character:FindFirstChild(Config.Aimbot.TargetPart)
-                                 if not part and Config.Aimbot.TargetPart == "UpperTorso" then part = player.Character:FindFirstChild("Torso") end -- R6 Fallback
-                                 if not part then part = player.Character:FindFirstChild("Head") end -- Ultimate Fallback
-                            end
+                        if part then
+                            part = Common.GetResolvedPart(player, part)
                             
-                            if part then
-                                part = Common.GetResolvedPart(player, part)
-                                
-                                local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
-                                if onScreen then
-                                    local distToMouse = (Vector2.new(pos.X, pos.Y) - mousePos).Magnitude
-                                    if distToMouse < fov then
-                                        if distToMouse < shortestDist then
-                                            -- Visibility Check (Most expensive, do last)
-                                            local isVisible = false
-                                            if customVisibilityCheck then
-                                                isVisible = customVisibilityCheck(player, part)
-                                            else
-                                                isVisible = Common.IsVisible(player, part)
-                                            end
-    
-                                            if isVisible then
-                                                shortestDist = distToMouse
-                                                bestTarget = player
-                                                bestPart = part
-                                            end
+                            local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
+                            if onScreen then
+                                local distToMouse = (Vector2.new(pos.X, pos.Y) - mousePos).Magnitude
+                                if distToMouse < fov then
+                                    if distToMouse < shortestDist then
+                                        -- Visibility Check (Most expensive, do last)
+                                        local isVisible = false
+                                        if customVisibilityCheck then
+                                            isVisible = customVisibilityCheck(player, part)
+                                        else
+                                            isVisible = Common.IsVisible(player, part)
+                                        end
+
+                                        if isVisible then
+                                            shortestDist = distToMouse
+                                            bestTarget = player
+                                            bestPart = part
                                         end
                                     end
                                 end
                             end
                         end
-                     end
+                    end
                  end
             end
         end
@@ -392,6 +435,12 @@ function Common.GetBestTarget(customVisibilityCheck)
     -- Cache result
     Common.CurrentTarget = bestTarget
     Common.CurrentPart = bestPart
+    
+    if not customVisibilityCheck then
+        Common.LastTargetUpdateTime = tick()
+        Common.CachedTarget = bestTarget
+        Common.CachedPart = bestPart
+    end
     
     return bestTarget, bestPart
 end

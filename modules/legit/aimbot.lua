@@ -94,46 +94,48 @@ function Aimbot.Update(dt)
     end
 
     -- [Optimization] Target Validation & Caching
-    local target, targetPart = nil, nil
+    local target = CurrentTarget
+    local targetPart = CurrentTargetPart
 
     -- 1. Check if we have a cached target that is still valid
-    if CurrentTarget and CurrentTargetPart and isValidTarget(CurrentTarget, CurrentTargetPart) then
-        local valid = false
-        
+    local isCachedTargetValid = false
+    if target and targetPart and isValidTarget(target, targetPart) then
         -- Rage Mode: Skip FOV/Vis checks, just stick to target
         if Config.Aimbot.Mode == "Rage" then
-            valid = true
+            isCachedTargetValid = true
         else
             -- Legit Mode: Check FOV and Visibility
-            local screenPos, onScreen = Camera:WorldToViewportPoint(CurrentTargetPart.Position)
+            local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
             if onScreen then
                 local mousePos = UserInputService:GetMouseLocation()
                 local fovDistance = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
-
-                if fovDistance <= Config.Aimbot.FieldOfView then
+                
+                local fov = Config.Aimbot.FOV or 180
+                if fovDistance <= fov then
                      -- Only check visibility if WallCheck is ON
-                     if not Config.Aimbot.WallCheck or Common.IsVisible(CurrentTarget, CurrentTargetPart) then
-                        valid = true
+                     if not Config.Aimbot.WallCheck or Common.IsVisible(target, targetPart) then
+                        isCachedTargetValid = true
                      end
                 end
             end
         end
-        
-        if valid then
-            target = CurrentTarget
-            targetPart = CurrentTargetPart
-        end
+    end
+    
+    if not isCachedTargetValid then
+        target = nil
+        targetPart = nil
     end
 
     -- 2. If cached target is invalid/lost, scan for new one
     if not target then
-        if tick() - lastScanTime >= scanInterval then
-            target, targetPart = Common.GetBestTarget(targetCheck)
-            lastScanTime = tick()
-        else
-            -- Optimization: Return early if waiting for next scan
-            return
+        -- [Optimization] Throttle scanning to avoid lag
+        if tick() - lastScanTime < scanInterval then
+            return -- Wait for next scan interval
         end
+        lastScanTime = tick()
+
+        -- Use Common.GetBestTarget which now has frame caching!
+        target, targetPart = Common.GetBestTarget(targetCheck)
     end
 
     if not target or not targetPart then
@@ -169,10 +171,10 @@ function Aimbot.Update(dt)
             local deltaY = targetScreenPos.Y - mouseLocation.Y
             
             -- Apply Smoothing
-            local smoothFactor = Config.Aimbot.Smoothing
-            if Config.Aimbot.Mode == "Rage" then smoothFactor = 0 end -- Instant lock
+            local smoothFactor = Config.Aimbot.Smoothing or 5
+            if Config.Aimbot.Mode == "Rage" then smoothFactor = 1 end -- Instant lock
 
-            if smoothFactor > 0 then
+            if smoothFactor > 1 then
                 deltaX = deltaX / smoothFactor
                 deltaY = deltaY / smoothFactor
             end
@@ -220,7 +222,7 @@ function Aimbot.Update(dt)
             newCFrame = Camera.CFrame:Lerp(newCFrame, fraction)
         end
 
-        if Config.Aimbot.Smoothing > 0 then
+        if Config.Aimbot.Smoothing > 0 and Config.Aimbot.Mode ~= "Rage" then
             local jitter = (math.random() - 0.5) * 0.1 
             local smoothFactor = (1 / Config.Aimbot.Smoothing) + jitter
             smoothFactor = math.clamp(smoothFactor, 0.01, 1) 

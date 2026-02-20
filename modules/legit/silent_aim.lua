@@ -1,5 +1,7 @@
 ---@diagnostic disable: deprecated
 ---@diagnostic disable: undefined-global
+---@diagnostic disable: undefined-field
+---@diagnostic disable: inject-field
 -- modules/legit/silent_aim.lua
 -- Implements silent aim functionality by hooking __index and __namecall.
 
@@ -177,13 +179,14 @@ function SilentAim.Init()
                         
                         -- [Safety] Max Angle Check (Limit to 15 degrees to prevent rage-like snaps)
                         -- This prevents "shooting backwards" which triggers anti-cheat
-                        local angle = getAngle(direction, newDirection)
-                        if angle < math.rad(Config.SilentAim.FieldOfView or 15) then
-                             -- [CRITICAL FIX] Prevent NaN/Inf errors
-                             if newDirection.Magnitude > 0.1 then
+                        
+                        -- [CRITICAL FIX] Prevent NaN/Inf errors BEFORE calculating angle
+                        if newDirection.Magnitude > 0.1 and direction.Magnitude > 0.1 then
+                            local angle = getAngle(direction, newDirection)
+                            if angle < math.rad(Config.SilentAim.FieldOfView or 15) then
                                  args[2] = newDirection.Unit * direction.Magnitude
                                  return oldNamecall(self, unpack(args))
-                             end
+                            end
                         end
                     end
                 end
@@ -199,11 +202,16 @@ function SilentAim.Init()
                          local newDirection = (targetPart.Position - origin)
                          
                          -- [Safety] Max Angle Check
-                         local angle = getAngle(direction, newDirection)
-                         if angle < math.rad(Config.SilentAim.FieldOfView or 15) then
-                             -- [CRITICAL FIX] Prevent NaN/Inf errors
-                             if newDirection.Magnitude > 0.1 then
-                                 local newRay = Ray.new(origin, newDirection.Unit * 5000)
+                         -- [CRITICAL FIX] Prevent NaN/Inf errors BEFORE calculating angle
+                         if newDirection.Magnitude > 0.1 and direction.Magnitude > 0.1 then
+                             local angle = getAngle(direction, newDirection)
+                             if angle < math.rad(Config.SilentAim.FieldOfView or 15) then
+                                 local originalLength = direction.Magnitude
+                                 -- If original length is small (< 20), preserve it (melee check?)
+                                 -- Otherwise use 5000 or original length if greater
+                                 local newLength = (originalLength < 20) and originalLength or 5000
+                                 
+                                 local newRay = Ray.new(origin, newDirection.Unit * newLength)
                                  args[1] = newRay
                                  return oldNamecall(self, unpack(args))
                              end

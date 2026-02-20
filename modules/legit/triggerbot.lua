@@ -9,6 +9,7 @@ local Players = Common.GetSafeService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local UserInputService = Common.GetSafeService("UserInputService")
+local vim = Common.GetSafeService("VirtualInputManager")
 
 local TriggerBot = {}
 
@@ -18,14 +19,18 @@ function TriggerBot.Update(dt)
     local mouseLocation = UserInputService:GetMouseLocation()
     local ray = Camera:ViewportPointToRay(mouseLocation.X, mouseLocation.Y)
     
-    -- Use cached RaycastParams from Common if available, or create new safely
-    local raycastParams = RaycastParams.new()
-    raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+    -- Use cached RaycastParams for performance
+    if not Common.RaycastParams then
+        Common.RaycastParams = RaycastParams.new()
+        Common.RaycastParams.FilterType = Enum.RaycastFilterType.Exclude
+        Common.RaycastParams.IgnoreWater = true
+    end
+    
     local filter = {Camera}
     if LocalPlayer.Character then table.insert(filter, LocalPlayer.Character) end
-    raycastParams.FilterDescendantsInstances = filter
+    Common.RaycastParams.FilterDescendantsInstances = filter
 
-    local result = workspace:Raycast(ray.Origin, ray.Direction * 1000, raycastParams)
+    local result = workspace:Raycast(ray.Origin, ray.Direction * 1000, Common.RaycastParams)
 
     if result and result.Instance then
         local hitPart = result.Instance
@@ -46,10 +51,18 @@ function TriggerBot.Update(dt)
                      end
                 end
 
-                -- Shoot
-                mouse1press()
-                task.wait(Config.TriggerBot.Delay)
-                mouse1release()
+                -- Shoot (Spawn task to avoid yielding main loop)
+                task.spawn(function()
+                    if mouse1press and mouse1release then
+                        mouse1press()
+                        task.wait(Config.TriggerBot.Delay)
+                        mouse1release()
+                    elseif vim then
+                        vim:SendMouseButtonEvent(mouseLocation.X, mouseLocation.Y, 0, true, game, 1)
+                        task.wait(Config.TriggerBot.Delay)
+                        vim:SendMouseButtonEvent(mouseLocation.X, mouseLocation.Y, 0, false, game, 1)
+                    end
+                end)
             end
         end
     end

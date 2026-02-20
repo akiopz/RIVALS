@@ -127,22 +127,6 @@ end
 
 -- Main Update Loop
 function ESP.UpdatePlayer(player)
-    -- Throttling: Check if enough time has passed since last global update
-    -- Note: Since this is called per player in a loop (usually), we should throttle the loop caller or handle it here.
-    -- If this function is called inside a loop over all players, we can just return early if time not met.
-    -- However, the main loop in rivals_v5_modular.lua calls this per frame for all players.
-    -- To optimize properly, we should only process a subset of players per frame or skip frames entirely.
-    
-    if tick() - lastUpdate < updateInterval then
-        return
-    end
-    
-    -- We need to update lastUpdate only once per frame cycle, not per player call.
-    -- But since we don't control the loop here easily without static variable...
-    -- Let's assume the caller handles the loop.
-    -- If the caller calls ESP.Update(player), it expects an update.
-    -- But we can optimize by checking distance and updating less frequently for far players.
-    
     if not Config.ESP.Enabled or not player or player == LocalPlayer then
         -- Cleanup if disabled
         if PlayerVisuals[player] then
@@ -154,7 +138,7 @@ function ESP.UpdatePlayer(player)
     end
 
     if not player.Character or not player.Character:FindFirstChild("Humanoid") or not player.Character:FindFirstChild("HumanoidRootPart") or player.Character.Humanoid.Health <= 0 then
-        -- Hide but don't destroy yet if just respawning, or destroy? Better destroy to be safe.
+        -- Hide but don't destroy yet if just respawning
         if PlayerVisuals[player] then
             if PlayerVisuals[player].highlight then PlayerVisuals[player].highlight.Enabled = false end
             if PlayerVisuals[player].billboard then PlayerVisuals[player].billboard.Enabled = false end
@@ -162,7 +146,34 @@ function ESP.UpdatePlayer(player)
         return
     end
 
-    -- [Bypass] Trap Check
+    -- [Optimization] Distance Check before anything else
+    local root = player.Character:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    
+    local camera = workspace.CurrentCamera
+    if not camera then return end
+    
+    local dist = (root.Position - camera.CFrame.Position).Magnitude
+
+    -- [Optimization] Dynamic Throttling based on distance
+    if not PlayerVisuals[player] then PlayerVisuals[player] = {lastUpdate = 0} end
+    local pVis = PlayerVisuals[player]
+    
+    local playerUpdateInterval = 0
+    if dist < 100 then
+        playerUpdateInterval = 0 -- Every frame
+    elseif dist < 300 then
+        playerUpdateInterval = 0.05 -- 20 FPS
+    else
+        playerUpdateInterval = 0.2 -- 5 FPS (Increased from 0.1 for better performance)
+    end
+    
+    if tick() - (pVis.lastUpdate or 0) < playerUpdateInterval then
+        return
+    end
+    pVis.lastUpdate = tick()
+
+    -- [Bypass] Trap Check (Expensive, so check after distance/throttle)
     if Common.IsTrap(player) then
         if PlayerVisuals[player] then
             if PlayerVisuals[player].highlight then PlayerVisuals[player].highlight.Enabled = false end
@@ -173,42 +184,11 @@ function ESP.UpdatePlayer(player)
 
     -- Init visuals if missing
     if not PlayerVisuals[player] then
-        PlayerVisuals[player] = {}
+        PlayerVisuals[player] = {lastUpdate = tick()}
     end
 
     local visuals = PlayerVisuals[player]
     local color = getPlayerColor(player)
-    
-    -- [Bypass] Render Distance Check
-    local root = player.Character:FindFirstChild("HumanoidRootPart")
-    if not root then return end
-    
-    local camera = workspace.CurrentCamera
-    if not camera then return end
-    
-    local dist = (root.Position - camera.CFrame.Position).Magnitude
-    
-    -- Dynamic Throttling based on distance
-    -- Close players update every frame (or close to it)
-    -- Far players update less frequently
-    -- This requires persistent state per player, which we have in PlayerVisuals
-    
-    if not PlayerVisuals[player] then PlayerVisuals[player] = {lastUpdate = 0} end
-    local pVis = PlayerVisuals[player]
-    
-    local playerUpdateInterval = 0
-    if dist < 100 then
-        playerUpdateInterval = 0 -- Every frame
-    elseif dist < 300 then
-        playerUpdateInterval = 0.05 -- 20 FPS
-    else
-        playerUpdateInterval = 0.1 -- 10 FPS
-    end
-    
-    if tick() - (pVis.lastUpdate or 0) < playerUpdateInterval then
-        return
-    end
-    pVis.lastUpdate = tick()
     
     if dist > 3000 then -- Don't render if > 3000 studs
         if visuals.highlight then visuals.highlight.Enabled = false end
@@ -296,11 +276,12 @@ function ESP.UpdatePlayer(player)
 end
 
 function ESP.Update()
-    for _, player in ipairs(Players:GetPlayers()) do
+    -- [Optimization] Iterate players directly without spawning tasks to avoid GC overhead
+    local players = Players:GetPlayers()
+    for i = 1, #players do
+        local player = players[i]
         if player ~= LocalPlayer then
-            task.spawn(function()
-                ESP.UpdatePlayer(player)
-            end)
+            ESP.UpdatePlayer(player)
         end
     end
 end
