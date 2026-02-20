@@ -113,82 +113,91 @@ getgenv().RivalsLoad = RivalsLoad -- Export for modules to use
 local Config
 
 -- Main script initialization
-local function Init()
-    task.wait(2) -- Wait for game to load
-    -- Clear previous connections and run cleanup functions on re-injection
-    if getgenv().Rivals_Connections then
-        for _, conn in pairs(getgenv().Rivals_Connections) do
-            if conn and conn.Disconnect then
-                pcall(function() conn:Disconnect() end)
-            end
+    local function Init()
+        task.wait(2) -- Wait for game to load
+        
+        -- [Bypass] Anti-Tamper / Environment Cleanup
+        -- Clean up previous environment if exists to prevent detection
+        if getgenv().RivalsLoad then
+             getgenv().RivalsLoad = nil
         end
-    end
-    getgenv().Rivals_Connections = {}
-
-    if getgenv().Rivals_Cleanup_Functions then
-        for _, cleanup in pairs(getgenv().Rivals_Cleanup_Functions) do
-            pcall(cleanup)
-        end
-    end
-    getgenv().Rivals_Cleanup_Functions = {}
-
-    -- Load Config first
-    local success, err = pcall(function()
-        Config = RivalsLoad("modules/utils/config.lua")
-        if Config and Config.Init then Config.Init() end
-    end)
-    if not success then warn("Failed to load/init Config: " .. tostring(err)) end
-
-    -- Load other modules
-    local modulePaths = {
-        "modules/utils/common.lua",
-        "modules/legit/aimbot.lua",
-        "modules/legit/triggerbot.lua", -- Added TriggerBot
-        "modules/legit/silent_aim.lua",
-        "modules/legit/hitbox_expander.lua", -- Added HitboxExpander
-        "modules/legit/anti_aim.lua", -- Added AntiAim
-        "modules/visuals/esp.lua",
-        "modules/visuals/world.lua",
-        "modules/ui/gui.lua",
-        -- Add other modules here as they are created
-    }
-
-    -- Async Loading
-    task.spawn(function()
-        for _, path in ipairs(modulePaths) do
-            local moduleName = path:match("modules/(.+).lua")
-            if moduleName then
-                moduleName = moduleName:gsub("/", "_")
-                local moduleSuccess, moduleErr = pcall(function()
-                    -- print("[RivalsLoad] Loading " .. path .. "...")
-                    Modules[moduleName] = RivalsLoad(path)
-                    if Modules[moduleName] and Modules[moduleName].Init then
-                        Modules[moduleName].Init()
-                    end
-                end)
-                if not moduleSuccess then 
-                    warn("Failed to load/init module " .. path .. ": " .. tostring(moduleErr)) 
+        
+        -- Clear previous connections and run cleanup functions on re-injection
+        if getgenv().Rivals_Connections then
+            for _, conn in pairs(getgenv().Rivals_Connections) do
+                if conn and conn.Disconnect then
+                    pcall(function() conn:Disconnect() end)
                 end
-                task.wait(0.1) -- Prevent freeze
             end
         end
-        
-        -- print("[Rivals V5] All Modules Loaded!")
-        
-        -- Cleanup Loader to prevent detection
-        getgenv().RivalsLoad = nil
-        
-        pcall(function()
-            StarterGui:SetCore("SendNotification", {
-                Title = "Rivals V5",
-                Text = "載入完成!",
-                Duration = 3
-            })
-        end)
-    end)
+        getgenv().Rivals_Connections = {}
 
-    -- Main loops
-    RunService.Heartbeat:Connect(function(dt)
+        if getgenv().Rivals_Cleanup_Functions then
+            for _, cleanup in pairs(getgenv().Rivals_Cleanup_Functions) do
+                pcall(cleanup)
+            end
+        end
+        getgenv().Rivals_Cleanup_Functions = {}
+
+        -- Load Config first
+        local success, err = pcall(function()
+            Config = RivalsLoad("modules/utils/config.lua")
+            if Config and Config.Init then Config.Init() end
+        end)
+        if not success then warn("Failed to load/init Config: " .. tostring(err)) end
+        
+        task.wait(0.1)
+
+        -- Load other modules
+        local modulePaths = {
+            "modules/utils/common.lua",
+            "modules/legit/aimbot.lua",
+            "modules/legit/triggerbot.lua", -- Added TriggerBot
+            "modules/legit/silent_aim.lua",
+            "modules/legit/hitbox_expander.lua", -- Added HitboxExpander
+            "modules/legit/anti_aim.lua", -- Added AntiAim
+            "modules/visuals/esp.lua",
+            "modules/visuals/world.lua",
+            "modules/ui/gui.lua",
+            -- Add other modules here as they are created
+        }
+
+        -- Async Loading
+        task.spawn(function()
+            for _, path in ipairs(modulePaths) do
+                local moduleName = path:match("modules/(.+).lua")
+                if moduleName then
+                    moduleName = moduleName:gsub("/", "_")
+                    local moduleSuccess, moduleErr = pcall(function()
+                        -- print("[RivalsLoad] Loading " .. path .. "...")
+                        Modules[moduleName] = RivalsLoad(path)
+                        if Modules[moduleName] and Modules[moduleName].Init then
+                            Modules[moduleName].Init()
+                        end
+                    end)
+                    if not moduleSuccess then 
+                        warn("Failed to load/init module " .. path .. ": " .. tostring(moduleErr)) 
+                    end
+                    task.wait(0.2) -- Increased wait to prevent timeout
+                end
+            end
+            
+            -- print("[Rivals V5] All Modules Loaded!")
+            
+            -- Cleanup Loader to prevent detection
+            getgenv().RivalsLoad = nil
+            
+            pcall(function()
+                StarterGui:SetCore("SendNotification", {
+                    Title = "Rivals V5",
+                    Text = "載入完成!",
+                    Duration = 3
+                })
+            end)
+        end)
+
+        -- Main loops
+        RunService.Heartbeat:Connect(function(dt)
         if not Modules then return end -- Safety check
         
         -- Safe call wrapper
