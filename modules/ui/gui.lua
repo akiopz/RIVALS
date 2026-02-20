@@ -66,7 +66,7 @@ local function updateGuiElements()
     for _, element in pairs(guiElements) do
         if element.type == "toggle" then
             element.drawing.Position = Vector2.new(guiPosition.X + 10, currentY)
-            element.drawing.Text = element.label .. ": " .. (Config[element.configGroup][element.configKey] and "開啟" or "關閉")
+            element.drawing.Text = element.label .. ": " .. (Config[element.configGroup][element.configKey] and "ON" or "OFF")
             element.drawing.Visible = isGuiVisible
             currentY = currentY + 20
         end
@@ -158,15 +158,15 @@ end
 function GUI.Init()
     -- Add initial toggles with delay to prevent detection
     local toggles = {
-        {"總開關", "Main", "Enabled"},
-        {"自瞄", "Aimbot", "Enabled"},
-        {"靜默瞄準", "SilentAim", "Enabled"},
-        {"方框透視", "ESP", "Boxes"},
-        {"名稱透視", "ESP", "Names"},
-        {"血條透視", "ESP", "Health"},
-        {"骨骼透視", "ESP", "Skeleton"},
-        {"隊友檢查", "ESP", "TeamCheck"},
-        {"十字準星", "World", "Crosshair"}
+        {"Master Switch", "Main", "Enabled"},
+        {"Aimbot", "Aimbot", "Enabled"},
+        {"Silent Aim", "SilentAim", "Enabled"},
+        {"ESP Box", "ESP", "Boxes"},
+        {"ESP Name", "ESP", "Names"},
+        {"ESP Health", "ESP", "Health"},
+        {"ESP Skeleton", "ESP", "Skeleton"},
+        {"Team Check", "ESP", "TeamCheck"},
+        {"Crosshair", "World", "Crosshair"}
     }
 
     for _, toggle in ipairs(toggles) do
