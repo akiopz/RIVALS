@@ -2,7 +2,7 @@
 -- modules/ui/gui.lua
 -- Implements the custom GUI for the exploit.
 
-local Config = getgenv().RivalsLoad("modules/utils/config.lua")
+local Config = getgenv().Rivals_Config_Instance or getgenv().RivalsLoad("modules/utils/config.lua")
 
 local UserInputService = game:GetService("UserInputService")
 local Drawing = Drawing or getgenv().Drawing -- Ensure Drawing library is available
@@ -162,13 +162,13 @@ function GUI.Init()
     end))
 
     -- Add initial toggles
-    GUI.AddToggle("總開關", "Enabled", "Enabled")
+    GUI.AddToggle("總開關", "Main", "Enabled")
     GUI.AddToggle("自瞄", "Aimbot", "Enabled")
     GUI.AddToggle("靜默瞄準", "SilentAim", "Enabled")
     GUI.AddToggle("方框透視", "ESP", "Boxes")
     GUI.AddToggle("名稱透視", "ESP", "Names")
-    GUI.AddToggle("血條透視", "ESP", "HealthBars")
-    GUI.AddToggle("骨骼透視", "ESP", "Skeletons")
+    GUI.AddToggle("血條透視", "ESP", "Health")
+    GUI.AddToggle("骨骼透視", "ESP", "Skeleton")
     GUI.AddToggle("隊友檢查", "ESP", "TeamCheck")
     GUI.AddToggle("十字準星", "World", "Crosshair")
 

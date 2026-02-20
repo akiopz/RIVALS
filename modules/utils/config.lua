@@ -5,6 +5,9 @@ if getgenv().Rivals_Config_Instance then
 end
 
 local Config = {
+    Main = {
+        Enabled = true, -- Global Switch
+    },
     Aimbot = {
         Enabled = false, -- Default OFF for safety
         AimMethod = "Mouse", -- Force Mouse Aim
@@ -59,6 +62,7 @@ local Config = {
     },
     ESP = {
         Enabled = false,
+        TeamCheck = true,
         Boxes = true,
         Tracers = false,
         Names = true,
@@ -149,6 +153,9 @@ local Config = {
         Enabled = false,
         Limit = 6, -- Choke factor (1-14)
         Dynamic = true -- Randomize choke to look more natural
+    },
+    GUI = {
+        Key = Enum.KeyCode.Insert, -- Menu Toggle Key
     },
     UI = {
         BackgroundImage = "rbxassetid://6675147490", -- Default Anime Background (Replace with your ID)
