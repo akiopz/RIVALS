@@ -149,7 +149,7 @@ function Common.IsTrap(player)
 end
 
 function Common.IsVisible(target, part)
-    if not Camera then Camera = Workspace.CurrentCamera end
+    if not Camera or not Camera.Parent then Camera = Workspace.CurrentCamera end
     if not Camera then return false end
     if not part then return false end
 
@@ -184,7 +184,7 @@ function Common.IsVisible(target, part)
 end
 
 function Common.GetNearestPart(player)
-    if not Camera then Camera = Workspace.CurrentCamera end
+    if not Camera or not Camera.Parent then Camera = Workspace.CurrentCamera end
     if not Camera then return nil end
 
     local bestPart = nil
@@ -251,7 +251,7 @@ function Common.GetResolvedPart(player, part)
 end
 
 function Common.GetBestTarget(customVisibilityCheck)
-    if not Camera then Camera = Workspace.CurrentCamera end
+    if not Camera or not Camera.Parent then Camera = Workspace.CurrentCamera end
     local mousePos = UserInputService:GetMouseLocation()
     
     -- Check if Aim Key is held to enable "Anywhere" locking

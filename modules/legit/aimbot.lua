@@ -41,8 +41,24 @@ function Aimbot.Update(dt)
             isAiming = true -- Simple mobile logic: Always active if enabled
         else
             -- [PC] Check Keybind
-            if UserInputService:IsKeyDown(Config.Aimbot.Key) then
-                isAiming = true
+            local key = Config.Aimbot.Key
+            if typeof(key) == "EnumItem" then
+                if key.EnumType == Enum.UserInputType then
+                    isAiming = UserInputService:IsMouseButtonPressed(key)
+                elseif key.EnumType == Enum.KeyCode then
+                    isAiming = UserInputService:IsKeyDown(key)
+                end
+            elseif typeof(key) == "string" then
+                if key == "MouseButton1" or key == "MB1" then
+                    isAiming = UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
+                elseif key == "MouseButton2" or key == "MB2" then
+                    isAiming = UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)
+                else
+                    local success, keyCode = pcall(function() return Enum.KeyCode[key] end)
+                    if success and keyCode then
+                        isAiming = UserInputService:IsKeyDown(keyCode)
+                    end
+                end
             end
         end
 
@@ -69,10 +85,8 @@ function Aimbot.Update(dt)
         local function targetCheck(player, part)
             if not isValidTarget(player, part) then return false end
 
-            -- Visibility check: If WallCheck is false, target must be visible.
-            -- If WallCheck is true, visibility is not a strict requirement for initial selection,
-            -- but we might still prioritize visible targets.
-            if not Config.Aimbot.WallCheck and not Common.IsVisible(player, part) then
+            -- Visibility check: If WallCheck is true, target must be visible.
+            if Config.Aimbot.WallCheck and not Common.IsVisible(player, part) then
                 return false
             end
             return true
@@ -89,7 +103,7 @@ function Aimbot.Update(dt)
                 local fovDistance = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
 
                 if fovDistance <= Config.Aimbot.FieldOfView then
-                    if Config.Aimbot.WallCheck or Common.IsVisible(CurrentTarget, CurrentTargetPart) then
+                    if not Config.Aimbot.WallCheck or Common.IsVisible(CurrentTarget, CurrentTargetPart) then
                         target = CurrentTarget
                         targetPart = CurrentTargetPart
                     end
