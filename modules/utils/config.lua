@@ -17,7 +17,7 @@ local Config = {
         TeamCheck = true,
         TargetPart = "Head", -- Default, will be overridden if NearestPart is on
         Sensitivity = 1, -- 0 = Rage, 1 = Legit
-        Smoothing = 2, -- Smoother by default (Higher = Slower/Smoother)
+        Smoothing = 1, -- Smoother by default (Higher = Slower/Smoother)
         FOV = 180, -- Increased default
         ShowFOV = true,
         NearestPart = true, -- Auto select nearest part to cursor
