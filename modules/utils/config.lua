@@ -34,6 +34,7 @@ local Config = {
         VisibilityCheckInterval = 0.1, -- [New] Throttle visibility checks to prevent lag (seconds)
         AimLock = true, -- [New] Keep aiming at target even if outside FOV (within AimLockStrength)
         AimLockStrength = 0.8, -- [New] How much to "stick" to the target (0-1, 1 = full lock)
+        AimLockForgivenessDuration = 0.2, -- [New] How long to "forgive" a target that briefly becomes invisible (seconds)
         RCS = false, -- [New] Recoil Control System
         RCSStrength = 0.8, -- [New] How much to compensate for recoil (0-1, 1 = full compensation)
         AutoFire = false, -- [New] Automatically fire when target is locked
