@@ -38,7 +38,9 @@ local Config = {
         RCS = false, -- [New] Recoil Control System
         RCSStrength = 0.8, -- [New] How much to compensate for recoil (0-1, 1 = full compensation)
         AutoFire = false, -- [New] Automatically fire when target is locked
-        TargetPriority = "Closest" -- [New] "Closest", "LowestHealth", "HighestDamage"
+        TargetPriority = "Closest", -- [New] "Closest", "LowestHealth", "HighestDamage"
+        TargetPartFallbackOrder = {"Head", "UpperTorso", "HumanoidRootPart"}, -- [New] Order to fallback to if TargetPart is invisible
+
     },
     SilentAim = {
         Enabled = false,

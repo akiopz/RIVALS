@@ -401,9 +401,32 @@ function Common.GetBestTarget(customVisibilityCheck)
                         if Config.Aimbot.NearestPart then
                              part = Common.GetNearestPart(player)
                         else
-                             part = player.Character:FindFirstChild(Config.Aimbot.TargetPart)
-                             if not part and Config.Aimbot.TargetPart == "UpperTorso" then part = player.Character:FindFirstChild("Torso") end -- R6 Fallback
-                             if not part then part = player.Character:FindFirstChild("Head") end -- Ultimate Fallback
+                            local primaryPartName = Config.Aimbot.TargetPart
+                            local fallbackOrder = Config.Aimbot.TargetPartFallbackOrder or {}
+                            
+                            -- Try primary part first
+                            part = player.Character:FindFirstChild(primaryPartName)
+                            
+                            local isPartVisible = function(p, targetPart)
+                                if customVisibilityCheck then
+                                    return customVisibilityCheck(p, targetPart)
+                                else
+                                    return Common.IsVisible(p, targetPart)
+                                end
+                            end
+
+                            -- If primary part is not found or not visible, try fallback parts
+                            if not part or not isPartVisible(player, part) then
+                                for _, fallbackPartName in ipairs(fallbackOrder) do
+                                    if fallbackPartName ~= primaryPartName then -- Avoid re-checking primary part
+                                        local fallbackPart = player.Character:FindFirstChild(fallbackPartName)
+                                        if fallbackPart and isPartVisible(player, fallbackPart) then
+                                            part = fallbackPart
+                                            break
+                                        end
+                                    end
+                                end
+                            end
                         end
                         
                         if part then
