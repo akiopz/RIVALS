@@ -48,6 +48,11 @@ local function targetCheck(player, part)
     if Config.Aimbot.WallCheck then
         local now = tick()
         local interval = Config.Aimbot.VisibilityCheckInterval or 0.1 -- Default to 0.1s
+        
+        -- For extreme aim, if AimLock is active and Smoothing is 1, check visibility every frame
+        if Config.Aimbot.AimLock and Config.Aimbot.Smoothing == 1 then
+            interval = 0 -- Check every frame
+        end
 
         -- Check if enough time has passed since last check for this player
         if not cachedVisibility[player] or (now - lastVisibilityCheckTime > interval) then
