@@ -19,6 +19,8 @@ local CurrentTarget = nil
 local CurrentTargetPart = nil
 local lastScanTime = 0
 local scanInterval = 0.05 -- Scan for new target every 50ms (20 FPS) instead of every frame
+local lastVisibilityCheckTime = 0 -- [FIX] Declare as local
+local cachedVisibility = {} -- [FIX] Declare as local
 
 local function isValidTarget(player, part)
     if not player or not player.Character or not player.Character:FindFirstChild("Humanoid") or player.Character.Humanoid.Health <= 0 then
