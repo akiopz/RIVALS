@@ -253,6 +253,9 @@ function Aimbot.Update(dt)
 
         -- Legit Mode: Smooth Lock
         local maxDegreesPerFrame = 10 
+        if Config.Aimbot.AimLock and Config.Aimbot.Smoothing == 1 then
+            maxDegreesPerFrame = 360 -- Effectively remove the limit for instant lock
+        end
         local currentLook = Camera.CFrame.LookVector
         local targetLook = direction
         local dot = math.clamp(currentLook:Dot(targetLook), -1, 1)
@@ -266,6 +269,9 @@ function Aimbot.Update(dt)
 
         if Config.Aimbot.Smoothing > 0 and Config.Aimbot.Mode ~= "Rage" then
             local jitter = (math.random() - 0.5) * 0.1 
+            if Config.Aimbot.AimLock and Config.Aimbot.Smoothing == 1 then
+                jitter = 0 -- Remove jitter for precise lock
+            end
             local smoothFactor = (1 / Config.Aimbot.Smoothing) + jitter
             smoothFactor = math.clamp(smoothFactor, 0.01, 1) 
             
