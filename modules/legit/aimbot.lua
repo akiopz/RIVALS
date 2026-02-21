@@ -56,11 +56,24 @@ local function targetCheck(player, part)
 
         -- Check if enough time has passed since last check for this player
         if not cachedVisibility[player] or (now - lastVisibilityCheckTime > interval) then
-            cachedVisibility[player] = Common.IsVisible(player, part)
+            local isCurrentlyVisible = Common.IsVisible(player, part)
+            cachedVisibility[player] = isCurrentlyVisible
             lastVisibilityCheckTime = now -- Update global last check time
+            
+            if isCurrentlyVisible then
+                cachedVisibility[player].lastVisibleTime = now -- Record when it was last visible
+            end
         end
         
-        if not cachedVisibility[player] then return false end
+        -- If not currently visible, but AimLock is on, check for forgiveness duration
+        if not cachedVisibility[player] then
+            if Config.Aimbot.AimLock and cachedVisibility[player].lastVisibleTime then
+                if (now - cachedVisibility[player].lastVisibleTime) <= Config.Aimbot.AimLockForgivenessDuration then
+                    return true -- Forgive for a short duration
+                end
+            end
+            return false 
+        end
     end
     return true
 end
@@ -135,7 +148,7 @@ function Aimbot.Update(dt)
 
                 if fovDistance <= effectiveFov then
                      -- Only check visibility if WallCheck is ON
-                     if not Config.Aimbot.WallCheck or Common.IsVisible(target, targetPart) then
+                     if not Config.Aimbot.WallCheck or targetCheck(target, targetPart) then
                         isCachedTargetValid = true
                      end
                 end
