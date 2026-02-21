@@ -373,7 +373,8 @@ function Common.GetBestTarget(customVisibilityCheck)
     
     local bestTarget = nil
     local bestPart = nil
-    local shortestDist = math.huge
+    
+    local potentialTargets = {}
 
     -- [Optimization] Iterate Valid Enemies only
     local targets = Common.ValidEnemies
@@ -383,9 +384,10 @@ function Common.GetBestTarget(customVisibilityCheck)
         if player and player.Character then
             -- Check if still valid (e.g. died since last update)
             local root = player.Character:FindFirstChild("HumanoidRootPart")
-            if root then
-                 local dist = (root.Position - Camera.CFrame.Position).Magnitude
-                 if dist < 5000 or Config.RageBot.FastLock then
+            local hum = player.Character:FindFirstChild("Humanoid")
+            if root and hum and hum.Health > 0 then
+                 local distanceToPlayer = (root.Position - Camera.CFrame.Position).Magnitude
+                 if distanceToPlayer < 5000 or Config.RageBot.FastLock then
                     local validTarget = true
                     
                     -- Team/Knocked/Trap checks are already done in update loop!
@@ -411,20 +413,22 @@ function Common.GetBestTarget(customVisibilityCheck)
                             if onScreen then
                                 local distToMouse = (Vector2.new(pos.X, pos.Y) - mousePos).Magnitude
                                 if distToMouse < fov then
-                                    if distToMouse < shortestDist then
-                                        -- Visibility Check (Most expensive, do last)
-                                        local isVisible = false
-                                        if customVisibilityCheck then
-                                            isVisible = customVisibilityCheck(player, part)
-                                        else
-                                            isVisible = Common.IsVisible(player, part)
-                                        end
+                                    -- Visibility Check (Most expensive, do last)
+                                    local isVisible = false
+                                    if customVisibilityCheck then
+                                        isVisible = customVisibilityCheck(player, part)
+                                    else
+                                        isVisible = Common.IsVisible(player, part)
+                                    end
 
-                                        if isVisible then
-                                            shortestDist = distToMouse
-                                            bestTarget = player
-                                            bestPart = part
-                                        end
+                                    if isVisible then
+                                        table.insert(potentialTargets, {
+                                            player = player,
+                                            part = part,
+                                            distToMouse = distToMouse,
+                                            health = hum.Health,
+                                            distanceToPlayer = distanceToPlayer
+                                        })
                                     end
                                 end
                             end
@@ -433,6 +437,23 @@ function Common.GetBestTarget(customVisibilityCheck)
                  end
             end
         end
+    end
+    
+    -- Sort potential targets based on priority
+    if #potentialTargets > 0 then
+        local priority = Config.Aimbot.TargetPriority
+        if priority == "Closest" then
+            table.sort(potentialTargets, function(a, b) return a.distanceToPlayer < b.distanceToPlayer end)
+        elseif priority == "LowestHealth" then
+            table.sort(potentialTargets, function(a, b) return a.health < b.health end)
+        -- elseif priority == "HighestDamage" then -- Requires game-specific damage calculation
+            -- Default to Closest if HighestDamage is selected or unrecognized
+        else -- Default to Closest if priority is not recognized
+            table.sort(potentialTargets, function(a, b) return a.distanceToPlayer < b.distanceToPlayer end)
+        end
+
+        bestTarget = potentialTargets[1].player
+        bestPart = potentialTargets[1].part
     end
     
     -- Cache result

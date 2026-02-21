@@ -35,7 +35,9 @@ local Config = {
         AimLock = false, -- [New] Keep aiming at target even if outside FOV (within AimLockStrength)
         AimLockStrength = 0.5, -- [New] How much to "stick" to the target (0-1, 1 = full lock)
         RCS = false, -- [New] Recoil Control System
-        RCSStrength = 0.8 -- [New] How much to compensate for recoil (0-1, 1 = full compensation)
+        RCSStrength = 0.8, -- [New] How much to compensate for recoil (0-1, 1 = full compensation)
+        AutoFire = false, -- [New] Automatically fire when target is locked
+        TargetPriority = "Closest" -- [New] "Closest", "LowestHealth", "HighestDamage"
     },
     SilentAim = {
         Enabled = false,

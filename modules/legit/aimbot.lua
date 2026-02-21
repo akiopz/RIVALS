@@ -163,7 +163,16 @@ function Aimbot.Update(dt)
     -- Apply prediction
     if Config.Aimbot.Prediction > 0 and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
         local velocity = target.Character.HumanoidRootPart.Velocity
-        targetPosition = targetPosition + (velocity * Config.Aimbot.Prediction)
+        local predictionFactor = Config.Aimbot.Prediction
+
+        if Config.Aimbot.DynamicPrediction then
+            local distance = (targetPosition - Camera.CFrame.Position).Magnitude
+            -- Adjust prediction factor based on distance. This is a simple linear scaling.
+            -- You might want to fine-tune this formula based on game physics.
+            predictionFactor = predictionFactor * (1 + (distance / 100)) -- Example: +1% prediction per 1 unit distance
+            predictionFactor = math.clamp(predictionFactor, 0, 0.5) -- Clamp to reasonable values
+        end
+        targetPosition = targetPosition + (velocity * predictionFactor)
     end
 
     -- [NEW] Apply RCS offset to targetPosition
@@ -178,6 +187,14 @@ function Aimbot.Update(dt)
     local diff = targetPosition - Camera.CFrame.Position
     if diff.Magnitude < 0.1 then return end -- Avoid NaN
     local direction = diff.Unit
+
+    -- [NEW] AutoFire
+    if Config.Aimbot.AutoFire and isAiming then
+        -- Simulate a mouse click (MouseButton1)
+        -- This assumes the weapon fires on MouseButton1 click.
+        -- If the game uses a different input for firing, this might need adjustment.
+        UserInputService:SimulateKeyPress(Enum.KeyCode.MouseButton1)
+    end
 
     -- Aim Method: Camera vs Mouse
     if Config.Aimbot.AimMethod == "Mouse" then
