@@ -93,6 +93,276 @@ Common.CachedPart = nil
 Common.ValidEnemies = {}
 Common.LastEnemyUpdateTime = 0
 
+Common.Targeting = {}
+Common.cachedVisibility = {}
+
+-- [Targeting Module]
+-- This module handles target acquisition, filtering, and selection.
+-- It replaces the old Common.GetBestTarget logic with a more modular approach.
+
+-- [Optimization] Update Valid Enemies List (Every 100ms)
+function Common.Targeting.UpdateValidEnemies()
+    if tick() - Common.LastEnemyUpdateTime > 0.1 then
+        Common.ValidEnemies = {}
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character then
+                local root = player.Character:FindFirstChild("HumanoidRootPart")
+                local hum = player.Character:FindFirstChild("Humanoid")
+                if root and hum and hum.Health > 0 then
+                    local isEnemy = true
+                    if Config.Aimbot.TeamCheck and player.Team == LocalPlayer.Team and player.Team ~= nil then
+                        isEnemy = false
+                    end
+                    
+                    if isEnemy and Config.Aimbot.KnockedCheck and Common.IsKnocked(player) then
+                        isEnemy = false
+                    end
+                    
+                    if isEnemy and Common.IsTrap(player) then
+                        isEnemy = false
+                    end
+                    
+                    if isEnemy then
+                        table.insert(Common.ValidEnemies, player)
+                    end
+                end
+            end
+        end
+        Common.LastEnemyUpdateTime = tick()
+    end
+end
+
+function Common.Targeting.GetPotentialTargets(customVisibilityCheck)
+    Common.Targeting.UpdateValidEnemies() -- Ensure valid enemies list is up-to-date
+
+    if not Camera or not Camera.Parent then Camera = Workspace.CurrentCamera end
+    local mousePos = UserInputService:GetMouseLocation()
+    
+    local isAiming = false
+    if Config.Aimbot.Key then
+        local key = Config.Aimbot.Key
+        if typeof(key) == "EnumItem" then
+            if key.EnumType == Enum.UserInputType then
+                isAiming = UserInputService:IsMouseButtonPressed(key)
+            elseif key.EnumType == Enum.KeyCode then
+                isAiming = UserInputService:IsKeyDown(key)
+            end
+        elseif typeof(key) == "string" then
+            if key == "MouseButton1" or key == "MB1" then
+                isAiming = UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
+            elseif key == "MouseButton2" or key == "MB2" then
+                isAiming = UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)
+            else
+                local success, keyCode = pcall(function() return Enum.KeyCode[key] end)
+                if success and keyCode then
+                    isAiming = UserInputService:IsKeyDown(keyCode)
+                end
+            end
+        end
+    end
+    
+    if not Config.Aimbot.Enabled and not Config.SilentAim.Enabled and not Config.RageBot.FastLock and not isAiming then return {} end
+    
+    local fov = Config.Aimbot.FOV
+    if Config.SilentAim.Enabled then 
+        fov = math.max(Config.SilentAim.FieldOfView or 180, Config.Aimbot.FOV or 180) 
+    end
+    if Config.RageBot.FastLock then fov = math.huge end
+    
+    if isAiming then
+        fov = math.huge -- Lock anywhere if key is held
+    end
+    
+    local potentialTargets = {}
+    local targets = Common.ValidEnemies
+    if #targets == 0 then return {} end
+
+    for _, player in ipairs(targets) do
+        if player and player.Character then
+            local root = player.Character:FindFirstChild("HumanoidRootPart")
+            local hum = player.Character:FindFirstChild("Humanoid")
+            if root and hum and hum.Health > 0 then
+                 local distanceToPlayer = (root.Position - Camera.CFrame.Position).Magnitude
+                 if distanceToPlayer < 5000 or Config.RageBot.FastLock then -- Advanced filtering can go here
+                    local validTarget = true
+                    
+                    if Config.Aimbot.KnockedCheck and Common.IsKnocked(player) then
+                        validTarget = false
+                    end
+                    
+                    if validTarget then
+                        local part = nil
+                        if Config.Aimbot.NearestPart then
+                             part = Common.GetNearestPart(player)
+                        else
+                            local primaryPartName = Config.Aimbot.TargetPart
+                            local fallbackOrder = Config.Aimbot.TargetPartFallbackOrder or {}
+                            
+                            part = player.Character:FindFirstChild(primaryPartName)
+                            
+                            local isPartVisibleFunc = function(p, targetPart)
+                                if customVisibilityCheck then
+                                    return customVisibilityCheck(p, targetPart)
+                                else
+                                    return Common.IsVisible(p, targetPart)
+                                end
+                            end
+
+                            if not part or not isPartVisibleFunc(player, part) then
+                                for _, fallbackPartName in ipairs(fallbackOrder) do
+                                    if fallbackPartName ~= primaryPartName then
+                                        local fallbackPart = player.Character:FindFirstChild(fallbackPartName)
+                                        if fallbackPart and isPartVisibleFunc(player, fallbackPart) then
+                                            part = fallbackPart
+                                            break
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                        
+                        if part then
+                            part = Common.GetResolvedPart(player, part)
+                            
+                            local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
+                            if onScreen then
+                                local distToMouse = (Vector2.new(pos.X, pos.Y) - mousePos).Magnitude
+                                if distToMouse < fov then
+                                    local isVisible = false
+                                    if customVisibilityCheck then
+                                        isVisible = customVisibilityCheck(player, part)
+                                    else
+                                        isVisible = Common.IsVisible(player, part)
+                                    end
+
+                                    if isVisible then
+                                        table.insert(potentialTargets, {
+                                            player = player,
+                                            part = part,
+                                            distToMouse = distToMouse,
+                                            health = hum.Health,
+                                            distanceToPlayer = distanceToPlayer
+                                        })
+                                    end
+                                end
+                            end
+                        end
+                    end
+                 end
+            end
+        end
+    end
+    return potentialTargets
+end
+
+function Common.Targeting.GetBestTarget(customVisibilityCheck)
+    -- [Optimization] Return cached result if called multiple times in same frame
+    if Common.LastTargetUpdateTime == tick() and not customVisibilityCheck then
+        return Common.CachedTarget, Common.CachedPart
+    end
+
+    local bestTarget = nil
+    local bestPart = nil
+
+    local potentialTargets = Common.Targeting.GetPotentialTargets(customVisibilityCheck)
+    
+    -- [Sticky Aim Check]
+    local player = Common.CurrentTarget
+    local part = Common.CurrentPart
+    local mousePos = UserInputService:GetMouseLocation()
+    local isAiming = false
+    if Config.Aimbot.Key then
+        local key = Config.Aimbot.Key
+        if typeof(key) == "EnumItem" then
+            if key.EnumType == Enum.UserInputType then
+                isAiming = UserInputService:IsMouseButtonPressed(key)
+            elseif key.EnumType == Enum.KeyCode then
+                isAiming = UserInputService:IsKeyDown(key)
+            end
+        elseif typeof(key) == "string" then
+            if key == "MouseButton1" or key == "MB1" then
+                isAiming = UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
+            elseif key == "MouseButton2" or key == "MB2" then
+                isAiming = UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)
+            else
+                local success, keyCode = pcall(function() return Enum.KeyCode[key] end)
+                if success and keyCode then
+                    isAiming = UserInputService:IsKeyDown(keyCode)
+                end
+            end
+        end
+    end
+
+    local fov = Config.Aimbot.FOV
+    if Config.SilentAim.Enabled then 
+        fov = math.max(Config.SilentAim.FieldOfView or 180, Config.Aimbot.FOV or 180) 
+    end
+    if Config.RageBot.FastLock then fov = math.huge end
+    
+    if isAiming then
+        fov = math.huge -- Lock anywhere if key is held
+    end
+
+    if player and part and (Config.Aimbot.StickyAim or isAiming) then
+        if player.Parent and player.Character and part.Parent == player.Character then
+             local valid = true
+             if Config.Aimbot.TeamCheck and player.Team == LocalPlayer.Team and player.Team ~= nil then valid = false end
+             if Config.Aimbot.KnockedCheck and Common.IsKnocked(player) then valid = false end
+             
+             if valid then
+                 local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
+                 if onScreen then
+                     local dist = (Vector2.new(pos.X, pos.Y) - mousePos).Magnitude
+                     if dist < (fov * 1.2) then
+                         if Common.IsVisible(player, part) then
+                             -- Check if the sticky target is still in the potential targets list
+                             for _, targetData in ipairs(potentialTargets) do
+                                 if targetData.player == player then
+                                     Common.CurrentTarget = player
+                                     Common.CurrentPart = part
+                                     if not customVisibilityCheck then
+                                         Common.LastTargetUpdateTime = tick()
+                                         Common.CachedTarget = player
+                                         Common.CachedPart = part
+                                     end
+                                     return player, part
+                                 end
+                             end
+                         end
+                     end
+                 end
+             end
+        end
+    end
+
+    -- Sort potential targets based on priority
+    if #potentialTargets > 0 then
+        local priority = Config.Aimbot.TargetPriority
+        if priority == "Closest" then
+            table.sort(potentialTargets, function(a, b) return a.distanceToPlayer < b.distanceToPlayer end)
+        elseif priority == "LowestHealth" then
+            table.sort(potentialTargets, function(a, b) return a.health < b.health end)
+        else -- Default to Closest if priority is not recognized
+            table.sort(potentialTargets, function(a, b) return a.distanceToPlayer < b.distanceToPlayer end)
+        end
+
+        bestTarget = potentialTargets[1].player
+        bestPart = potentialTargets[1].part
+    end
+    
+    -- Cache result
+    Common.CurrentTarget = bestTarget
+    Common.CurrentPart = bestPart
+    
+    if not customVisibilityCheck then
+        Common.LastTargetUpdateTime = tick()
+        Common.CachedTarget = bestTarget
+        Common.CachedPart = bestPart
+    end
+    
+    return bestTarget, bestPart
+end
+
 -- [Bypass] Bezier Curve Utilities for Aimbot
 function Common.BezierQuad(t, p0, p1, p2)
     return (1 - t)^2 * p0 + 2 * (1 - t) * t * p1 + t^2 * p2
@@ -161,16 +431,20 @@ function Common.IsVisible(target, part)
     -- WallBang Check
     if Config.RageBot.WallBang then return true end
 
-    -- Check visibility based on active mode
+    local isWallCheckEnabled = false
     if Config.SilentAim.Enabled then
-        if not Config.SilentAim.VisibleCheck then return true end
+        isWallCheckEnabled = Config.SilentAim.VisibleCheck
     else
-        if not Config.Aimbot.WallCheck then return true end
+        isWallCheckEnabled = Config.Aimbot.WallCheck
     end
-    
+
+    -- If wall check is disabled, always return true
+    if not isWallCheckEnabled then return true end
+
     local origin = Camera.CFrame.Position
     local direction = part.Position - origin
-    
+    local distance = direction.Magnitude
+
     -- Re-use RaycastParams for performance
     if not Common.RaycastParams then
         Common.RaycastParams = RaycastParams.new()
@@ -184,15 +458,30 @@ function Common.IsVisible(target, part)
     
     local result
     local success = pcall(function()
-        result = Workspace:Raycast(origin, direction.Unit * (direction.Magnitude - 0.1), Common.RaycastParams)
+        result = Workspace:Raycast(origin, direction.Unit * (distance - 0.1), Common.RaycastParams)
     end)
     
-    if not success then return false end -- Assume not visible on error
-    
-    if result and result.Instance and not result.Instance:IsDescendantOf(target.Character) then
-        return false
+    local isCurrentlyVisible = false
+    if success and result and result.Instance and result.Instance:IsDescendantOf(target.Character) then
+        isCurrentlyVisible = true
     end
-    return true
+
+    -- Forgiveness mechanism
+    local forgivenessDuration = Config.Aimbot.AimLockForgivenessDuration or 0
+    local targetId = target.Name -- Using player name as a unique ID for caching
+
+    if isCurrentlyVisible then
+        Common.cachedVisibility[targetId] = tick()
+        return true
+    else
+        -- Check if target was recently visible within the forgiveness duration
+        local lastVisibleTime = Common.cachedVisibility[targetId]
+        if lastVisibleTime and (tick() - lastVisibleTime <= forgivenessDuration) then
+            return true
+        end
+    end
+
+    return false
 end
 
 function Common.GetNearestPart(player)
@@ -269,227 +558,6 @@ function Common.GetResolvedPart(player, part)
     return part
 end
 
-function Common.GetBestTarget(customVisibilityCheck)
-    -- [Optimization] Return cached result if called multiple times in same frame
-    if Common.LastTargetUpdateTime == tick() and not customVisibilityCheck then
-        return Common.CachedTarget, Common.CachedPart
-    end
 
-    if not Camera or not Camera.Parent then Camera = Workspace.CurrentCamera end
-    local mousePos = UserInputService:GetMouseLocation()
-    
-    -- [Optimization] Update Valid Enemies List (Every 100ms)
-    if tick() - Common.LastEnemyUpdateTime > 0.1 then
-        Common.ValidEnemies = {}
-        for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and player.Character then
-                local root = player.Character:FindFirstChild("HumanoidRootPart")
-                local hum = player.Character:FindFirstChild("Humanoid")
-                if root and hum and hum.Health > 0 then
-                    local isEnemy = true
-                    if Config.Aimbot.TeamCheck and player.Team == LocalPlayer.Team and player.Team ~= nil then
-                        isEnemy = false
-                    end
-                    
-                    if isEnemy and Config.Aimbot.KnockedCheck and Common.IsKnocked(player) then
-                        isEnemy = false
-                    end
-                    
-                    if isEnemy and Common.IsTrap(player) then
-                        isEnemy = false
-                    end
-                    
-                    if isEnemy then
-                        table.insert(Common.ValidEnemies, player)
-                    end
-                end
-            end
-        end
-        Common.LastEnemyUpdateTime = tick()
-    end
-
-    -- Check if Aim Key is held to enable "Anywhere" locking
-    local isAiming = false
-    if Config.Aimbot.Key then
-        local key = Config.Aimbot.Key
-        if typeof(key) == "EnumItem" then
-            if key.EnumType == Enum.UserInputType then
-                isAiming = UserInputService:IsMouseButtonPressed(key)
-            elseif key.EnumType == Enum.KeyCode then
-                isAiming = UserInputService:IsKeyDown(key)
-            end
-        elseif typeof(key) == "string" then
-            if key == "MouseButton1" or key == "MB1" then
-                isAiming = UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
-            elseif key == "MouseButton2" or key == "MB2" then
-                isAiming = UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)
-            else
-                local success, keyCode = pcall(function() return Enum.KeyCode[key] end)
-                if success and keyCode then
-                    isAiming = UserInputService:IsKeyDown(keyCode)
-                end
-            end
-        end
-    end
-    
-    if not Config.Aimbot.Enabled and not Config.SilentAim.Enabled and not Config.RageBot.FastLock and not isAiming then return nil, nil end
-    
-    local fov = Config.Aimbot.FOV
-    if Config.SilentAim.Enabled then 
-        -- Silent Aim uses its own FOV, but we need to ensure it's not overridden by Aimbot settings
-        fov = math.max(Config.SilentAim.FieldOfView or 180, Config.Aimbot.FOV or 180) 
-    end
-    if Config.RageBot.FastLock then fov = math.huge end
-    
-    if isAiming then
-        fov = math.huge -- Lock anywhere if key is held
-    end
-    
-    -- [Sticky Aim Check]
-    local player = Common.CurrentTarget
-    local part = Common.CurrentPart
-
-    -- If key is held, force Sticky Aim logic regardless of config
-    if player and part and (Config.Aimbot.StickyAim or isAiming) then
-        if player.Parent and player.Character and part.Parent == player.Character then
-             local valid = true
-             if Config.Aimbot.TeamCheck and player.Team == LocalPlayer.Team and player.Team ~= nil then valid = false end
-             if Config.Aimbot.KnockedCheck and Common.IsKnocked(player) then valid = false end
-             
-             if valid then
-                 local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
-                 if onScreen then
-                     local dist = (Vector2.new(pos.X, pos.Y) - mousePos).Magnitude
-                     -- If aiming, fov is huge, so this will always pass
-                     if dist < (fov * 1.2) then
-                         if Common.IsVisible(player, part) then
-                             return player, part
-                         end
-                     end
-                 end
-             end
-        end
-    end
-    
-    local bestTarget = nil
-    local bestPart = nil
-    
-    local potentialTargets = {}
-
-    -- [Optimization] Iterate Valid Enemies only
-    local targets = Common.ValidEnemies
-    if #targets == 0 then return nil, nil end
-
-    for _, player in ipairs(targets) do
-        if player and player.Character then
-            -- Check if still valid (e.g. died since last update)
-            local root = player.Character:FindFirstChild("HumanoidRootPart")
-            local hum = player.Character:FindFirstChild("Humanoid")
-            if root and hum and hum.Health > 0 then
-                 local distanceToPlayer = (root.Position - Camera.CFrame.Position).Magnitude
-                 if distanceToPlayer < 5000 or Config.RageBot.FastLock then
-                    local validTarget = true
-                    
-                    -- Team/Knocked/Trap checks are already done in update loop!
-                    -- But double check Knocked if needed as it changes fast
-                    if Config.Aimbot.KnockedCheck and Common.IsKnocked(player) then
-                        validTarget = false
-                    end
-                    
-                    if validTarget then
-                        local part = nil
-                        if Config.Aimbot.NearestPart then
-                             part = Common.GetNearestPart(player)
-                        else
-                            local primaryPartName = Config.Aimbot.TargetPart
-                            local fallbackOrder = Config.Aimbot.TargetPartFallbackOrder or {}
-                            
-                            -- Try primary part first
-                            part = player.Character:FindFirstChild(primaryPartName)
-                            
-                            local isPartVisible = function(p, targetPart)
-                                if customVisibilityCheck then
-                                    return customVisibilityCheck(p, targetPart)
-                                else
-                                    return Common.IsVisible(p, targetPart)
-                                end
-                            end
-
-                            -- If primary part is not found or not visible, try fallback parts
-                            if not part or not isPartVisible(player, part) then
-                                for _, fallbackPartName in ipairs(fallbackOrder) do
-                                    if fallbackPartName ~= primaryPartName then -- Avoid re-checking primary part
-                                        local fallbackPart = player.Character:FindFirstChild(fallbackPartName)
-                                        if fallbackPart and isPartVisible(player, fallbackPart) then
-                                            part = fallbackPart
-                                            break
-                                        end
-                                    end
-                                end
-                            end
-                        end
-                        
-                        if part then
-                            part = Common.GetResolvedPart(player, part)
-                            
-                            local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
-                            if onScreen then
-                                local distToMouse = (Vector2.new(pos.X, pos.Y) - mousePos).Magnitude
-                                if distToMouse < fov then
-                                    -- Visibility Check (Most expensive, do last)
-                                    local isVisible = false
-                                    if customVisibilityCheck then
-                                        isVisible = customVisibilityCheck(player, part)
-                                    else
-                                        isVisible = Common.IsVisible(player, part)
-                                    end
-
-                                    if isVisible then
-                                        table.insert(potentialTargets, {
-                                            player = player,
-                                            part = part,
-                                            distToMouse = distToMouse,
-                                            health = hum.Health,
-                                            distanceToPlayer = distanceToPlayer
-                                        })
-                                    end
-                                end
-                            end
-                        end
-                    end
-                 end
-            end
-        end
-    end
-    
-    -- Sort potential targets based on priority
-    if #potentialTargets > 0 then
-        local priority = Config.Aimbot.TargetPriority
-        if priority == "Closest" then
-            table.sort(potentialTargets, function(a, b) return a.distanceToPlayer < b.distanceToPlayer end)
-        elseif priority == "LowestHealth" then
-            table.sort(potentialTargets, function(a, b) return a.health < b.health end)
-        -- elseif priority == "HighestDamage" then -- Requires game-specific damage calculation
-            -- Default to Closest if HighestDamage is selected or unrecognized
-        else -- Default to Closest if priority is not recognized
-            table.sort(potentialTargets, function(a, b) return a.distanceToPlayer < b.distanceToPlayer end)
-        end
-
-        bestTarget = potentialTargets[1].player
-        bestPart = potentialTargets[1].part
-    end
-    
-    -- Cache result
-    Common.CurrentTarget = bestTarget
-    Common.CurrentPart = bestPart
-    
-    if not customVisibilityCheck then
-        Common.LastTargetUpdateTime = tick()
-        Common.CachedTarget = bestTarget
-        Common.CachedPart = bestPart
-    end
-    
-    return bestTarget, bestPart
-end
 
 return Common

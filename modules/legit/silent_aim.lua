@@ -33,23 +33,9 @@ function SilentAim.Update(dt)
         return
     end
 
-    local function targetCheck(player, part)
-        -- [Bypass] Trap Check
-        if Common.IsTrap(player) then return false end
 
-        -- If Visible Check is disabled, everything is valid
-        if Config.Aimbot.Mode == "Rage" then return true end
-        if not Config.SilentAim.VisibleCheck then return true end
-        
-        -- Check standard visibility
-        if Common.IsVisible(player, part) then return true end
-        
-        -- TODO: Add Backtrack check here if implemented
-        
-        return false
-    end
 
-    local target, targetPart = Common.GetBestTarget(targetCheck)
+    local target, targetPart = Common.Targeting.GetBestTarget()
     if not target or not targetPart then
         CurrentTarget = nil
         CurrentTargetPart = nil
@@ -57,32 +43,7 @@ function SilentAim.Update(dt)
         return
     end
 
-    -- FOV Check (Silent Aim usually doesn't have FOV, but for consistency with Aimbot)
-    local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
-    
-    -- [Bypass] Directional Sanity Check
-    -- Ensure target is actually on screen to prevent "shooting backward"
-    if not onScreen then
-        CurrentTarget = nil
-        CurrentTargetPart = nil
-        CurrentTargetCFrame = nil
-        return
-    end
-    
-    local mousePos = Common.GetSafeService("UserInputService"):GetMouseLocation()
-    local dist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
 
-    local fov = Config.SilentAim.FieldOfView or Config.Aimbot.FieldOfView or 50
-    if Config.Aimbot.Mode == "Rage" then fov = 9999 end
-
-    if dist > fov then
-        -- Silent Aim should NOT clear target if just outside FOV, let Aimbot handle clearing?
-        -- Actually, Silent Aim strictly respects FOV.
-        CurrentTarget = nil
-        CurrentTargetPart = nil
-        CurrentTargetCFrame = nil
-        return
-    end
 
     -- TODO: Add more advanced visibility/raycast checks here if needed
 

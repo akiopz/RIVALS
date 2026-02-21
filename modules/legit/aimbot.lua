@@ -5,6 +5,9 @@
 
 local Config = getgenv().RivalsLoad("modules/utils/config.lua")
 local Common = getgenv().RivalsLoad("modules/utils/common.lua")
+local Prediction = getgenv().RivalsLoad("modules/utils/prediction.lua")
+local Smoothing = getgenv().RivalsLoad("modules/utils/smoothing.lua")
+local InputSimulation = getgenv().RivalsLoad("modules/utils/input_simulation.lua")
 
 local Players = Common.GetSafeService("Players")
 local UserInputService = Common.GetSafeService("UserInputService")
@@ -19,64 +22,7 @@ local CurrentTarget = nil
 local CurrentTargetPart = nil
 local lastScanTime = 0
 local scanInterval = 0.05 -- Scan for new target every 50ms (20 FPS) instead of every frame
-local lastVisibilityCheckTime = 0 -- [FIX] Declare as local
-local cachedVisibility = {} -- [FIX] Declare as local
 
-local function isValidTarget(player, part)
-    if not player or not player.Character or not player.Character:FindFirstChild("Humanoid") or player.Character.Humanoid.Health <= 0 then
-        return false
-    end
-    if not part or not part:IsA("BasePart") then
-        return false
-    end
-    -- Team check
-    if Config.Aimbot.TeamCheck and player.Team == LocalPlayer.Team then
-        return false
-    end
-    return true
-end
-
-local function targetCheck(player, part)
-    if not isValidTarget(player, part) then return false end
-
-    -- Rage Mode: Ignore WallCheck if enabled
-    if Config.Aimbot.Mode == "Rage" then
-        return true
-    end
-
-    -- Visibility check: If WallCheck is true, target must be visible.
-    if Config.Aimbot.WallCheck then
-        local now = tick()
-        local interval = Config.Aimbot.VisibilityCheckInterval or 0.1 -- Default to 0.1s
-        
-        -- For extreme aim, if AimLock is active and Smoothing is 1, check visibility every frame
-        if Config.Aimbot.AimLock and Config.Aimbot.Smoothing == 1 then
-            interval = 0 -- Check every frame
-        end
-
-        -- Check if enough time has passed since last check for this player
-        if not cachedVisibility[player] or (now - lastVisibilityCheckTime > interval) then
-            local isCurrentlyVisible = Common.IsVisible(player, part)
-            cachedVisibility[player] = isCurrentlyVisible
-            lastVisibilityCheckTime = now -- Update global last check time
-            
-            if isCurrentlyVisible then
-                cachedVisibility[player].lastVisibleTime = now -- Record when it was last visible
-            end
-        end
-        
-        -- If not currently visible, but AimLock is on, check for forgiveness duration
-        if not cachedVisibility[player] then
-            if Config.Aimbot.AimLock and cachedVisibility[player].lastVisibleTime then
-                if (now - cachedVisibility[player].lastVisibleTime) <= Config.Aimbot.AimLockForgivenessDuration then
-                    return true -- Forgive for a short duration
-                end
-            end
-            return false 
-        end
-    end
-    return true
-end
 
 function Aimbot.Update(dt)
     -- Robustness: Check dependencies
@@ -128,7 +74,7 @@ function Aimbot.Update(dt)
 
     -- 1. Check if we have a cached target that is still valid
     local isCachedTargetValid = false
-    if target and targetPart and isValidTarget(target, targetPart) then
+    if target and targetPart then
         -- Rage Mode: Skip FOV/Vis checks, just stick to target
         if Config.Aimbot.Mode == "Rage" then
             isCachedTargetValid = true
@@ -148,7 +94,7 @@ function Aimbot.Update(dt)
 
                 if fovDistance <= effectiveFov then
                      -- Only check visibility if WallCheck is ON
-                     if not Config.Aimbot.WallCheck or targetCheck(target, targetPart) then
+                     if not Config.Aimbot.WallCheck or Common.IsVisible(target, targetPart) then
                         isCachedTargetValid = true
                      end
                 end
@@ -170,7 +116,7 @@ function Aimbot.Update(dt)
         lastScanTime = tick()
 
         -- Use Common.GetBestTarget which now has frame caching!
-        target, targetPart = Common.GetBestTarget(targetCheck)
+        target, targetPart = Common.Targeting.GetBestTarget()
     end
 
     if not target or not targetPart then
@@ -186,19 +132,16 @@ function Aimbot.Update(dt)
     -- Calculate target position
     local targetPosition = targetPart.Position
 
-    -- Apply prediction
+    -- Apply prediction using the new Prediction module
     if Config.Aimbot.Prediction > 0 and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-        local velocity = target.Character.HumanoidRootPart.Velocity
-        local predictionFactor = Config.Aimbot.Prediction
-
-        if Config.Aimbot.DynamicPrediction then
-            local distance = (targetPosition - Camera.CFrame.Position).Magnitude
-            -- Adjust prediction factor based on distance. This is a simple linear scaling.
-            -- You might want to fine-tune this formula based on game physics.
-            predictionFactor = predictionFactor * (1 + (distance / 100)) -- Example: +1% prediction per 1 unit distance
-            predictionFactor = math.clamp(predictionFactor, 0, 0.5) -- Clamp to reasonable values
-        end
-        targetPosition = targetPosition + (velocity * predictionFactor)
+        targetPosition = Prediction.PredictPosition(
+            target,
+            target.Character.HumanoidRootPart,
+            dt,
+            Config.Aimbot.Prediction,
+            Config.Aimbot.DynamicPrediction,
+            Camera
+        )
     end
 
     -- [NEW] Apply RCS offset to targetPosition
@@ -216,10 +159,7 @@ function Aimbot.Update(dt)
 
     -- [NEW] AutoFire
     if Config.Aimbot.AutoFire and isAiming then
-        -- Simulate a mouse click (MouseButton1)
-        -- This assumes the weapon fires on MouseButton1 click.
-        -- If the game uses a different input for firing, this might need adjustment.
-        UserInputService:SimulateKeyPress(Enum.KeyCode.MouseButton1)
+        InputSimulation.SimulateKeyPress(Enum.UserInputType.MouseButton1)
     end
 
     -- Aim Method: Camera vs Mouse
@@ -235,8 +175,9 @@ function Aimbot.Update(dt)
             if Config.Aimbot.Mode == "Rage" then smoothFactor = 1 end -- Instant lock
 
             if smoothFactor > 1 then
-                deltaX = deltaX / smoothFactor
-                deltaY = deltaY / smoothFactor
+                -- Use humanized smoothing for mouse movement
+                deltaX = Smoothing.Humanized(deltaX, smoothFactor, Config.Aimbot.HumanizationStrength or 0.1)
+                deltaY = Smoothing.Humanized(deltaY, smoothFactor, Config.Aimbot.HumanizationStrength or 0.1)
             end
             
             -- Apply Max Turn Speed (Cap delta)
@@ -251,13 +192,7 @@ function Aimbot.Update(dt)
             end
 
             -- Move Mouse
-            if mousemoverel then
-                mousemoverel(deltaX, deltaY)
-            elseif Input and Input.MoveMouse then 
-                Input.MoveMouse(deltaX, deltaY)
-            elseif vim then 
-                 vim:SendMouseMoveEvent(mouseLocation.X + deltaX, mouseLocation.Y + deltaY, 0, game)
-            end
+            InputSimulation.MoveMouseRelative(deltaX, deltaY)
         end
     else
         -- Camera Aimbot (CFrame)
@@ -286,12 +221,8 @@ function Aimbot.Update(dt)
         end
 
         if Config.Aimbot.Smoothing > 0 and Config.Aimbot.Mode ~= "Rage" then
-            local jitter = (math.random() - 0.5) * 0.1 
-            if Config.Aimbot.AimLock and Config.Aimbot.Smoothing == 1 then
-                jitter = 0 -- Remove jitter for precise lock
-            end
-            local smoothFactor = (1 / Config.Aimbot.Smoothing) + jitter
-            smoothFactor = math.clamp(smoothFactor, 0.01, 1) 
+            local baseSmoothFactor = (1 / Config.Aimbot.Smoothing)
+            local smoothFactor = Smoothing.GetLerpAlpha(baseSmoothFactor, Config.Aimbot.HumanizationStrength or 0.1)
             
             local dist = (targetPosition - Camera.CFrame.Position).Magnitude
             if dist < 20 then
