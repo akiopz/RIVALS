@@ -122,7 +122,13 @@ function Aimbot.Update(dt)
                 local fovDistance = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
                 
                 local fov = Config.Aimbot.FOV or 180
-                if fovDistance <= fov then
+                local effectiveFov = fov
+                -- If AimLock is enabled, expand the FOV for existing targets
+                if Config.Aimbot.AimLock then
+                    effectiveFov = fov + (fov * Config.Aimbot.AimLockStrength) -- Expand FOV based on AimLockStrength
+                end
+
+                if fovDistance <= effectiveFov then
                      -- Only check visibility if WallCheck is ON
                      if not Config.Aimbot.WallCheck or Common.IsVisible(target, targetPart) then
                         isCachedTargetValid = true
